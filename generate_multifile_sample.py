@@ -1,18 +1,19 @@
 """
 generate_multifile_sample.py
 -----------------------------
-Reparteix sample_data/dataset_2000p.csv en 4 fitxers temàtics:
+Reparteix cada dataset de línia (sample_data/<línia>/dataset_<línia>.csv) en
+5 fitxers, un per domini del catàleg CCI-SNS:
 
-  1_determinantes_sociales.csv    — determinants socials i demogràfics
-  2_salud_mental_conductual.csv   — salut mental, conductual i percepció
-  3_funcionalidad_autonomia.csv   — funcionalitat i autonomia
-  4_complejidad_clinica.csv       — complexitat clínica i risc
+  <línia>_D1_funcional_motor.csv
+  <línia>_D2_cognitivo_mental_conductual.csv
+  <línia>_D3_soporte_vital_riesgo_clinico.csv
+  <línia>_D4_comorbilidad_cronicidad.csv
+  <línia>_D5_social_contextual.csv
 
-No genera dades noves: és una partició exacta del dataset únic (cada fila va a
-un sol fitxer segons la seva variable). Així els 4 fitxers són coherents entre
-ells i amb el fitxer únic — mateixos pacients, mateixes dates de visita, mateixos
-valors — tal com ho serien les taules d'un mateix extracte real. Pujar els 4
-junts o el fitxer únic ha de donar exactament el mateix resultat.
+No genera dades noves: és una partició exacta del dataset de la línia (cada fila
+va al fitxer del domini de la seva variable). Els 5 fitxers són coherents entre
+ells — mateixos pacients, mateixes dates, mateixos valors — com les taules d'un
+mateix extracte, i pujar-los junts dona el mateix resultat que el fitxer únic.
 
 Ús (després de generate_synthetic.py):
     python generate_multifile_sample.py
@@ -21,36 +22,37 @@ junts o el fitxer únic ha de donar exactament el mateix resultat.
 import csv
 import os
 
-from generate_synthetic import BLOCKS, OUTPUT as SOURCE
-
-OUTPUT_DIR = "sample_data"
+from generate_synthetic import FIELDS, LINES, dataset_path, domain_files, load_catalog
 
 
-def split(source: str = SOURCE, output_dir: str = OUTPUT_DIR) -> dict[str, int]:
-    block_of = {var: block for block, variables in BLOCKS.items() for var in variables}
+def split(line: str, catalog: list[dict]) -> dict[str, int]:
+    domain_of = {v["name"]: v["domain_id"] for v in catalog}
+    suffix    = domain_files(catalog)
+    source    = dataset_path(line)
+    per_domain: dict[str, list[dict]] = {d: [] for d in suffix}
 
     with open(source, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        fieldnames = reader.fieldnames
-        per_block: dict[str, list[dict]] = {b: [] for b in BLOCKS}
-        for row in reader:
-            block = block_of.get(row["variable"])
-            if block is None:
-                raise ValueError(f"Variable sense bloc temàtic: {row['variable']!r}")
-            per_block[block].append(row)
+        for row in csv.DictReader(f):
+            domain = domain_of.get(row["variable"])
+            if domain is None:
+                raise ValueError(f"{source}: variable fora del catàleg: {row['variable']!r}")
+            per_domain[domain].append(row)
 
     totals = {}
-    for block, rows in per_block.items():
-        path = os.path.join(output_dir, f"{block}.csv")
+    for domain, rows in per_domain.items():
+        path = os.path.join(os.path.dirname(source), f"{line}_{suffix[domain]}.csv")
         with open(path, "w", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer = csv.DictWriter(f, fieldnames=FIELDS, lineterminator="\n")
             writer.writeheader()
             writer.writerows(rows)
-        totals[block] = len(rows)
-        print(f"{block}.csv  →  {len(rows):,} registres  ({len(BLOCKS[block])} variables)")
+        totals[path] = len(rows)
     return totals
 
 
 if __name__ == "__main__":
-    totals = split()
-    print(f"\nTotal: {sum(totals.values()):,} registres = {SOURCE} (partició exacta)")
+    catalog = load_catalog()
+    for line in LINES:
+        totals = split(line, catalog)
+        for path, n in totals.items():
+            print(f"{path}: {n:,} registres")
+        print(f"  = {sum(totals.values()):,} registres de {dataset_path(line)} (partició exacta)\n")

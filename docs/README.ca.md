@@ -53,22 +53,17 @@ docker compose down
 
 ## Datasets d'exemple
 
-Si vols provar l'eina abans d'utilitzar les teves pròpies dades, pots descarregar aquests datasets sintètics:
+Si vols provar l'eina abans d'utilitzar les teves pròpies dades, `sample_data/` conté datasets sintètics construïts sobre el **catàleg CCI-SNS** (5 dominis, les 42 variables actives amb les seves categories provisionals; còpia a `catalogo_cci_sns/`). Hi ha **un dataset per línia assistencial** — poblacions independents, així que cadascun és una sessió diferent:
 
-**Mode de fitxer únic** (un sol CSV amb totes les variables):
+| Línia | Fitxer únic | Pacients | Perfil |
+|---|---|---|---|
+| AH — atenció hospitalària | [`AH/dataset_AH.csv`](https://raw.githubusercontent.com/Ps7Pep/local-anonymizer/refs/heads/main/sample_data/AH/dataset_AH.csv) | 2.000 | ingrés + revaloració, amb hora; episodis aguts |
+| AP — atenció primària | [`AP/dataset_AP.csv`](https://raw.githubusercontent.com/Ps7Pep/local-anonymizer/refs/heads/main/sample_data/AP/dataset_AP.csv) | 2.000 | més joves, majoritàriament autònoms |
+| LE — llarga estada | [`LE/dataset_LE.csv`](https://raw.githubusercontent.com/Ps7Pep/local-anonymizer/refs/heads/main/sample_data/LE/dataset_LE.csv) | 2.000 | grans, dependents, deteriorament cognitiu freqüent |
 
-- [`dataset_2000p.csv`](https://raw.githubusercontent.com/Ps7Pep/local-anonymizer/refs/heads/main/sample_data/dataset_2000p.csv) — 2.000 pacients, les 65 variables clíniques en un sol fitxer
+**Mode multi-fitxer:** cada línia també està repartida en 5 fitxers, un per domini CCI-SNS (`<línia>_D1_funcional_motor.csv` … `<línia>_D5_social_contextual.csv`, a la mateixa carpeta). Puja alhora els 5 fitxers d'una línia (arrossega diversos fitxers, o Ctrl+clic al selector): el resultat és idèntic al del fitxer únic d'aquesta línia.
 
-**Mode multi-fitxer** (mateixos pacients, variables repartides en fitxers temàtics):
-
-- [`1_determinantes_sociales.csv`](https://raw.githubusercontent.com/Ps7Pep/local-anonymizer/refs/heads/main/sample_data/1_determinantes_sociales.csv) — determinants socials
-- [`2_salud_mental_conductual.csv`](https://raw.githubusercontent.com/Ps7Pep/local-anonymizer/refs/heads/main/sample_data/2_salud_mental_conductual.csv) — salut mental i conductual
-- [`3_funcionalidad_autonomia.csv`](https://raw.githubusercontent.com/Ps7Pep/local-anonymizer/refs/heads/main/sample_data/3_funcionalidad_autonomia.csv) — funcionalitat i autonomia
-- [`4_complejidad_clinica.csv`](https://raw.githubusercontent.com/Ps7Pep/local-anonymizer/refs/heads/main/sample_data/4_complejidad_clinica.csv) — complexitat clínica
-
-Puja'ls tots quatre alhora per provar el mode multi-fitxer (arrossega i deixa anar diversos fitxers a la vegada, o Ctrl+clic al selector de fitxers).
-
-Tots els datasets segueixen el format canònic de 4 columnes (`pacient`, `data`, `item`, `valor`) i contenen dades completament sintètiques. No inclouen informació real de pacients.
+Format: `patient_id, fecha, variable, valor` — `variable` és el nom del catàleg i `valor` és el que hi hauria al registre clínic: la **puntuació crua de l'instrument** quan la categoria defineix un rang (Barthel 0–100, MMSE 0–30, Braden, GAD-7, Zarit, IMC, glucèmia…) i, si no, l'etiqueta de la categoria. Dades completament sintètiques; no inclouen informació real de pacients.
 
 ## Format del CSV d'entrada
 
@@ -92,11 +87,12 @@ L'aplicació detecta automàticament les variantes del nom de columna i les norm
 ### Exemple de files
 
 ```csv
-patient_id,data,variable,valor
-P0001,2023-02-15,estado_cognitivo,deterioro_leve
-P0001,2023-02-15,edad,67
-P0001,2023-02-15,fragilidad,fragil
-P0001,2023-03-28,estado_cognitivo,deterioro_moderado
+patient_id,fecha,variable,valor
+AH00042,2024-03-02 09:15,Actividades básicas de la vida diaria (ABVD),75
+AH00042,2024-03-02 09:15,Estado cognitivo,22
+AH00042,2024-03-02 09:15,Continencia,Incontinencia ocasional urinaria
+AH00042,2024-03-02 09:15,Edad,81
+AH00042,2024-03-06 11:40,Actividades básicas de la vida diaria (ABVD),85
 ```
 
 ---
@@ -232,8 +228,9 @@ local-anonymizer/
 │   └── README.ca.md               # Aquest fitxer
 │
 ├── sample_data/
-│   ├── dataset_2000p.csv          # Dataset sintètic — 2.000 pacients (un fitxer)
-│   └── 1_… 4_….csv               # Els mateixos 2.000 pacients en 4 fitxers temàtics
+│   └── AH/ AP/ LE/                # Un dataset sintètic per línia assistencial (2.000 pacients)
+│                                  #   dataset_<línia>.csv + 5 fitxers, un per domini CCI-SNS
+├── catalogo_cci_sns/              # Variables i categories provisionals CCI-SNS (còpia; les fa servir el generador)
 │
 ├── generate_synthetic.py          # Genera el dataset sintètic (perfil fix per pacient)
 ├── generate_multifile_sample.py   # El reparteix en els 4 fitxers temàtics (partició exacta)

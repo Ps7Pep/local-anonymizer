@@ -53,22 +53,17 @@ docker compose down
 
 ## Datasets de ejemplo
 
-Si quieres probar la herramienta antes de utilizar tus propios datos, puedes descargar estos datasets sintéticos:
+Si quieres probar la herramienta antes de utilizar tus propios datos, `sample_data/` contiene datasets sintéticos construidos sobre el **catálogo CCI-SNS** (5 dominios, las 42 variables activas con sus categorías provisionales; copia en `catalogo_cci_sns/`). Hay **un dataset por línea asistencial** — poblaciones independientes, así que cada uno es una sesión distinta:
 
-**Modo de fichero único** (un solo CSV con todas las variables):
+| Línea | Fichero único | Pacientes | Perfil |
+|---|---|---|---|
+| AH — atención hospitalaria | [`AH/dataset_AH.csv`](https://raw.githubusercontent.com/Ps7Pep/local-anonymizer/refs/heads/main/sample_data/AH/dataset_AH.csv) | 2.000 | ingreso + revaloración, con hora; episodios agudos |
+| AP — atención primaria | [`AP/dataset_AP.csv`](https://raw.githubusercontent.com/Ps7Pep/local-anonymizer/refs/heads/main/sample_data/AP/dataset_AP.csv) | 2.000 | más jóvenes, mayoritariamente autónomos |
+| LE — larga estancia | [`LE/dataset_LE.csv`](https://raw.githubusercontent.com/Ps7Pep/local-anonymizer/refs/heads/main/sample_data/LE/dataset_LE.csv) | 2.000 | mayores, dependientes, deterioro cognitivo frecuente |
 
-- [`dataset_2000p.csv`](https://raw.githubusercontent.com/Ps7Pep/local-anonymizer/refs/heads/main/sample_data/dataset_2000p.csv) — 2.000 pacientes, las 65 variables clínicas en un único fichero
+**Modo multi-fichero:** cada línea también está repartida en 5 ficheros, uno por dominio CCI-SNS (`<línea>_D1_funcional_motor.csv` … `<línea>_D5_social_contextual.csv`, en la misma carpeta). Sube a la vez los 5 ficheros de una línea (arrastra varios ficheros, o Ctrl+clic en el selector): el resultado es idéntico al del fichero único de esa línea.
 
-**Modo multi-fichero** (mismos pacientes, variables repartidas en ficheros temáticos):
-
-- [`1_determinantes_sociales.csv`](https://raw.githubusercontent.com/Ps7Pep/local-anonymizer/refs/heads/main/sample_data/1_determinantes_sociales.csv) — determinantes sociales
-- [`2_salud_mental_conductual.csv`](https://raw.githubusercontent.com/Ps7Pep/local-anonymizer/refs/heads/main/sample_data/2_salud_mental_conductual.csv) — salud mental y conductual
-- [`3_funcionalidad_autonomia.csv`](https://raw.githubusercontent.com/Ps7Pep/local-anonymizer/refs/heads/main/sample_data/3_funcionalidad_autonomia.csv) — funcionalidad y autonomía
-- [`4_complejidad_clinica.csv`](https://raw.githubusercontent.com/Ps7Pep/local-anonymizer/refs/heads/main/sample_data/4_complejidad_clinica.csv) — complejidad clínica
-
-Súbelos los cuatro a la vez para probar el modo multi-fichero (arrastra y suelta varios ficheros al mismo tiempo, o Ctrl+clic en el selector de ficheros).
-
-Todos los datasets siguen el formato canónico de 4 columnas (`pacient`, `data`, `item`, `valor`) y contienen datos completamente sintéticos. No incluyen información real de pacientes.
+Formato: `patient_id, fecha, variable, valor` — `variable` es el nombre del catálogo y `valor` es lo que habría en el registro clínico: la **puntuación cruda del instrumento** cuando la categoría define un rango (Barthel 0–100, MMSE 0–30, Braden, GAD-7, Zarit, IMC, glucemia…) y, si no, la etiqueta de la categoría. Datos completamente sintéticos; no incluyen información real de pacientes.
 
 ## Formato del CSV de entrada
 
@@ -92,11 +87,12 @@ La aplicación detecta automáticamente las variantes del nombre de columna y la
 ### Ejemplo de filas
 
 ```csv
-patient_id,data,variable,valor
-P0001,2023-02-15,estado_cognitivo,deterioro_leve
-P0001,2023-02-15,edad,67
-P0001,2023-02-15,fragilidad,fragil
-P0001,2023-03-28,estado_cognitivo,deterioro_moderado
+patient_id,fecha,variable,valor
+AH00042,2024-03-02 09:15,Actividades básicas de la vida diaria (ABVD),75
+AH00042,2024-03-02 09:15,Estado cognitivo,22
+AH00042,2024-03-02 09:15,Continencia,Incontinencia ocasional urinaria
+AH00042,2024-03-02 09:15,Edad,81
+AH00042,2024-03-06 11:40,Actividades básicas de la vida diaria (ABVD),85
 ```
 
 ---
@@ -232,8 +228,9 @@ local-anonymizer/
 │   └── README.ca.md               # README en catalán
 │
 ├── sample_data/
-│   ├── dataset_2000p.csv          # Dataset sintético — 2.000 pacientes (un fichero)
-│   └── 1_… 4_….csv               # Los mismos 2.000 pacientes en 4 ficheros temáticos
+│   └── AH/ AP/ LE/                # Un dataset sintético por línea asistencial (2.000 pacientes)
+│                                  #   dataset_<línea>.csv + 5 ficheros, uno por dominio CCI-SNS
+├── catalogo_cci_sns/              # Variables y categorías provisionales CCI-SNS (copia; las usa el generador)
 │
 ├── generate_synthetic.py          # Genera el dataset sintético (perfil fijo por paciente)
 ├── generate_multifile_sample.py   # Lo reparte en los 4 ficheros temáticos (partición exacta)

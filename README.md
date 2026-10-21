@@ -76,22 +76,17 @@ docker compose down
 
 ## Sample datasets
 
-If you want to test the tool before using your own data, you can download these synthetic datasets:
+If you want to test the tool before using your own data, `sample_data/` contains synthetic datasets built on the **CCI-SNS catalogue** (5 domains, the 42 active variables with their provisional categories; copy in [`catalogo_cci_sns/`](catalogo_cci_sns/)). There is **one dataset per care line** — independent populations, so each one is a separate session:
 
-**Single-file mode** (one CSV with all variables):
+| Line | Single file | Patients | Profile |
+|---|---|---|---|
+| AH — hospital care | [`AH/dataset_AH.csv`](https://raw.githubusercontent.com/Ps7Pep/local-anonymizer/refs/heads/main/sample_data/AH/dataset_AH.csv) | 2,000 | admission + reassessment, with time of day; acute episodes |
+| AP — primary care | [`AP/dataset_AP.csv`](https://raw.githubusercontent.com/Ps7Pep/local-anonymizer/refs/heads/main/sample_data/AP/dataset_AP.csv) | 2,000 | younger, mostly autonomous |
+| LE — long-term care | [`LE/dataset_LE.csv`](https://raw.githubusercontent.com/Ps7Pep/local-anonymizer/refs/heads/main/sample_data/LE/dataset_LE.csv) | 2,000 | elderly, dependent, frequent cognitive impairment |
 
-- [`dataset_2000p.csv`](https://raw.githubusercontent.com/Ps7Pep/local-anonymizer/refs/heads/main/sample_data/dataset_2000p.csv) — 2,000 patients, all 65 clinical variables in one file
+**Multi-file mode:** each line is also split into 5 files, one per CCI-SNS domain (`<line>_D1_funcional_motor.csv` … `<line>_D5_social_contextual.csv`, same folder). Upload the 5 files of one line together (drag & drop several files, or Ctrl+click in the file picker): the result is identical to uploading that line's single file.
 
-**Multi-file mode** (same patients, variables split across thematic files):
-
-- [`1_determinantes_sociales.csv`](https://raw.githubusercontent.com/Ps7Pep/local-anonymizer/refs/heads/main/sample_data/1_determinantes_sociales.csv) — social determinants
-- [`2_salud_mental_conductual.csv`](https://raw.githubusercontent.com/Ps7Pep/local-anonymizer/refs/heads/main/sample_data/2_salud_mental_conductual.csv) — mental and behavioural health
-- [`3_funcionalidad_autonomia.csv`](https://raw.githubusercontent.com/Ps7Pep/local-anonymizer/refs/heads/main/sample_data/3_funcionalidad_autonomia.csv) — functionality and autonomy
-- [`4_complejidad_clinica.csv`](https://raw.githubusercontent.com/Ps7Pep/local-anonymizer/refs/heads/main/sample_data/4_complejidad_clinica.csv) — clinical complexity
-
-Upload all four together to test multi-file mode (drag & drop several files at once, or Ctrl+click in the file picker).
-
-All datasets share the canonical 4-column format (`pacient`, `data`, `item`, `valor`) and contain entirely synthetic data. No real patient information is involved.
+Format: `patient_id, fecha, variable, valor` — `variable` is the catalogue name and `valor` is what a clinical record would hold: the **raw instrument score** when the category defines a range (Barthel 0–100, MMSE 0–30, Braden, GAD-7, Zarit, BMI, glycaemia…), otherwise the category label. All data is entirely synthetic; no real patient information is involved.
 
 ## Input CSV format
 
@@ -124,11 +119,12 @@ The application automatically detects column name variants and normalises them i
 ### Example rows
 
 ```csv
-patient_id,data,variable,valor
-P0001,2023-02-15,estado_cognitivo,deterioro_leve
-P0001,2023-02-15,edad,67
-P0001,2023-02-15,fragilidad,fragil
-P0001,2023-03-28,estado_cognitivo,deterioro_moderado
+patient_id,fecha,variable,valor
+AH00042,2024-03-02 09:15,Actividades básicas de la vida diaria (ABVD),75
+AH00042,2024-03-02 09:15,Estado cognitivo,22
+AH00042,2024-03-02 09:15,Continencia,Incontinencia ocasional urinaria
+AH00042,2024-03-02 09:15,Edad,81
+AH00042,2024-03-06 11:40,Actividades básicas de la vida diaria (ABVD),85
 ```
 
 ---
@@ -261,8 +257,9 @@ local-anonymizer/
 │   └── README.ca.md               # Catalan README
 │
 ├── sample_data/
-│   ├── dataset_2000p.csv          # Synthetic dataset — 2,000 patients (single file)
-│   └── 1_… 4_….csv               # Same 2,000 patients split across 4 thematic files
+│   └── AH/ AP/ LE/                # One synthetic dataset per care line (2,000 patients each)
+│                                  #   dataset_<line>.csv + 5 files, one per CCI-SNS domain
+├── catalogo_cci_sns/              # CCI-SNS variables and provisional categories (copy; used by the generator)
 │
 ├── generate_synthetic.py          # Generates the single-file synthetic dataset
 ├── generate_multifile_sample.py   # Splits it into the 4 thematic files (exact partition)
@@ -297,14 +294,14 @@ The interface is available in **Catalan**, **Spanish** and **English**. Language
 
 ## Synthetic dataset generation
 
-`generate_synthetic.py` produces the single-file dataset of 2,000 patients × 2 visits × 65 variables, modelled on a real clinical extract:
+`generate_synthetic.py` reads the CCI-SNS catalogue in `catalogo_cci_sns/` and produces one dataset per care line (AH, AP, LE): 2,000 patients × 2 assessments × the 42 active variables, modelled on a real clinical extract:
 
-- each patient has a fixed profile (birth date, sex, origin, education level…) — demographics do not change between visits;
-- age is computed at each visit from the birth date, so it can go up by one year between visits;
-- clinical variables do change between visits;
-- distributions resemble a real population (e.g. `no_binario` and some origins are rare), so k-anonymity removes genuinely rare profiles.
+- values are raw instrument scores (Barthel, Lawton, Braden, MNA-SF, MMSE, EVA, GAD-7, PHQ-9, DAST-10, Padua, glycaemia, Fried, number of drugs, BMI, MOS, De Jong Gierveld, Zarit, HLS19) whenever the category defines a range — applying the catalogue ranges gives exactly the category — and category labels otherwise. The generator stops if a scale no longer matches its variable's categories;
+- each patient has a fixed profile (sex, migration, TSI, health literacy, caregiver, GMA); age is computed at each assessment from the birth date, so it can go up by one year;
+- a latent complexity level per patient, different per line (LE > AH > AP), drives the clinical variables; acute situations (haemodynamic instability, delirium, acute pain…) depend on the line and are mostly hospital episodes;
+- an assessment that was not done has no row; «No evaluable» appears only where the catalogue has it (more often with cognitive impairment); adult instruments are not recorded for minors.
 
-`generate_multifile_sample.py` does **not** generate new data: it splits that same file into 4 thematic files by variable. The union of the 4 files is exactly `dataset_2000p.csv`, so uploading the 4 files together or the single file gives the same result.
+`generate_multifile_sample.py` does **not** generate new data: it splits each line's dataset into 5 files, one per domain. The union of the 5 files is exactly the line's dataset, so uploading them together or the single file gives the same result.
 
 ```bash
 # inside the container (the host needs no Python)

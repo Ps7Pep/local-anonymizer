@@ -46,12 +46,13 @@ from app.modules.anonymizer import (
 KEY = b"k" * 32
 
 
-SAMPLE_DIR = Path(__file__).resolve().parents[1] / "sample_data"
-PARTITIONED_FILES = [
-    "1_determinantes_sociales.csv",
-    "2_salud_mental_conductual.csv",
-    "3_funcionalidad_autonomia.csv",
-    "4_complejidad_clinica.csv",
+SAMPLE_DIR = Path(__file__).resolve().parents[1] / "sample_data" / "AH"
+PARTITIONED_FILES = [            # hospital-care dataset split by CCI-SNS domain
+    "AH_D1_funcional_motor.csv",
+    "AH_D2_cognitivo_mental_conductual.csv",
+    "AH_D3_soporte_vital_riesgo_clinico.csv",
+    "AH_D4_comorbilidad_cronicidad.csv",
+    "AH_D5_social_contextual.csv",
 ]
 HASH_RE = re.compile(r"^H-[0-9a-f]{12}$")
 _SOURCE_COL = "_source_file"
@@ -272,7 +273,7 @@ def test_k_anonymity_full_pipeline_on_partitioned_sample():
     original_ids = set(df["pacient"].dropna().astype(str).unique())
 
     # Pick two items that exist in the sample as quasi-IDs.
-    quasi = ["sexo_y_o_genero", "edad"]
+    quasi = ["Sexo / Género", "Edad"]
     available = set(df["item"].unique())
     quasi = [q for q in quasi if q in available]
     if not quasi:

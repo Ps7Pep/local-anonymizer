@@ -8,8 +8,9 @@ Coherence-first pipeline, as with a real extract:
   3. the patient hash is applied LAST, only to the released records, with
      one session key for every file.
 
-Also pins the synthetic sample: the 4 thematic files are an exact partition
-of dataset_2000p.csv, and demographics are stable per patient.
+Also pins the synthetic sample (CCI-SNS catalogue, one dataset per care line):
+the 5 domain files of each line are an exact partition of its dataset, and
+demographics are stable per patient.
 
 Run:  python -m pytest tests/test_coherence.py -v
 """
@@ -32,10 +33,17 @@ from app.main import app, sessions
 
 client = TestClient(app)
 SAMPLE_DIR = Path(__file__).resolve().parents[1] / "sample_data"
-PARTITIONED_FILES = [
-    "1_determinantes_sociales.csv", "2_salud_mental_conductual.csv",
-    "3_funcionalidad_autonomia.csv", "4_complejidad_clinica.csv",
-]
+LINES = ("AH", "AP", "LE")
+DOMAINS = ("D1_funcional_motor", "D2_cognitivo_mental_conductual", "D3_soporte_vital_riesgo_clinico",
+           "D4_comorbilidad_cronicidad", "D5_social_contextual")
+
+
+def _single(line):
+    return SAMPLE_DIR / line / f"dataset_{line}.csv"
+
+
+def _parts(line):
+    return [SAMPLE_DIR / line / f"{line}_{d}.csv" for d in DOMAINS]
 
 
 def _upload(csvs: dict[str, str]):
@@ -148,35 +156,44 @@ def _rows(path):
         return [tuple(r.values()) for r in csv.DictReader(f)]
 
 
-def test_sample_files_are_an_exact_partition_of_the_single_dataset():
-    single = Counter(_rows(SAMPLE_DIR / "dataset_2000p.csv"))
-    parts = Counter()
-    for f in PARTITIONED_FILES:
-        parts += Counter(_rows(SAMPLE_DIR / f))
-    assert parts == single
-    items_per_file = [{r[2] for r in _rows(SAMPLE_DIR / f)} for f in PARTITIONED_FILES]
-    assert sum(len(s) for s in items_per_file) == len(set().union(*items_per_file)), "variable in >1 file"
+def test_sample_files_are_an_exact_partition_of_each_line_dataset():
+    for line in LINES:
+        single = Counter(_rows(_single(line)))
+        parts = Counter()
+        for f in _parts(line):
+            parts += Counter(_rows(f))
+        assert parts == single, line
+        items_per_file = [{r[2] for r in _rows(f)} for f in _parts(line)]
+        assert sum(len(s) for s in items_per_file) == len(set().union(*items_per_file)), f"{line}: variable in >1 file"
+
+
+def test_care_lines_are_independent_populations():
+    ids = [{r[0] for r in _rows(_single(line))} for line in LINES]
+    assert all(len(s) == 2000 for s in ids)
+    assert not (ids[0] & ids[1]) and not (ids[0] & ids[2]) and not (ids[1] & ids[2])
 
 
 def test_sample_demographics_are_stable_per_patient():
-    df = pd.read_csv(SAMPLE_DIR / "dataset_2000p.csv", dtype=str, keep_default_na=False)
-    for var in ("sexo_y_o_genero", "origen", "nivel_educativo", "migracion"):
-        per_patient = df[df["variable"] == var].groupby("patient_id")["valor"].nunique()
-        assert (per_patient == 1).all(), f"{var} changes between visits for {int((per_patient > 1).sum())} patients"
-    # age is derived from a birth date: it can only stay or go up by one between visits
-    edad = df[df["variable"] == "edad"].assign(v=lambda d: d["valor"].astype(int)).sort_values("data")
-    span = edad.groupby("patient_id")["v"].agg(lambda s: s.iloc[-1] - s.iloc[0])
-    assert set(span.unique()) <= {0, 1}
+    for line in LINES:
+        df = pd.read_csv(_single(line), dtype=str, keep_default_na=False)
+        df = df[df["valor"] != ""]
+        for var in ("Sexo / Género", "Migración / Origen", "Nivel socioeconómico", "Índice de comorbilidad"):
+            per_patient = df[df["variable"] == var].groupby("patient_id")["valor"].nunique()
+            assert (per_patient == 1).all(), f"{line} · {var}: changes between visits for {int((per_patient > 1).sum())} patients"
+        # age is derived from a birth date: it can only stay or go up by one between visits
+        edad = df[df["variable"] == "Edad"].assign(v=lambda d: d["valor"].astype(int)).sort_values("fecha")
+        span = edad.groupby("patient_id")["v"].agg(lambda s: s.iloc[-1] - s.iloc[0])
+        assert set(span.unique()) <= {0, 1}, line
 
 
-def test_single_file_and_four_files_give_the_same_result():
-    quasi = {"edad", "sexo_y_o_genero"}
-    with open(SAMPLE_DIR / "dataset_2000p.csv", encoding="utf-8") as f:
-        single = _run(_upload({"dataset_2000p.csv": f.read()}), quasi, k=5)
+def test_single_file_and_domain_files_give_the_same_result():
+    quasi = {"Edad", "Sexo / Género"}
+    with open(_single("AH"), encoding="utf-8") as f:
+        single = _run(_upload({"dataset_AH.csv": f.read()}), quasi, k=5)
     parts = {}
-    for name in PARTITIONED_FILES:
-        with open(SAMPLE_DIR / name, encoding="utf-8") as f:
-            parts[name] = f.read()
+    for path in _parts("AH"):
+        with open(path, encoding="utf-8") as f:
+            parts[path.name] = f.read()
     up = _upload(parts)
     assert up["relationship"]["pct_patients_shared"] == 100.0
     multi = _run(up, quasi, k=5)
