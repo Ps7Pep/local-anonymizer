@@ -1,0 +1,14 @@
+patient_id,fecha,variable,valor
+P001,2024-01-01,Catéter venoso periférico-Calibre catéter,18G
+P001,2024-01-01,PROGRAMA,ATENCIÓN AL PACIENTE CRÓNICO INSUFICIENCIA CARDIACA
+P001,2024-01-02,Catéter venoso periférico-Escala Maddox flebitis,"0 - Sin dolor o eritema"
+P002,2024-01-01,Variable amb "cometes dobles" enmig,valor normal
+P002,2024-01-02,Notes mèdiques,"Pacient amb ""diagnòstic confirmat"" via biòpsia"
+P002,2024-01-03,Variable normal,"valor amb , coma interna"
+P003,2024-01-01,Cometa solitària,text amb "cometa sense tancar
+P003,2024-01-02,Variable amb salt,"valor amb
+salt de línia"
+P003,2024-01-03,Edat,75
+P004,2024-01-01,Sexe,Femení
+P004,2024-01-02,Variable amb àccents,"àlgia òssia, espècies múltiples"
+P004,2024-01-03,PROGRAMA,ATENCIÓN A MAYORES

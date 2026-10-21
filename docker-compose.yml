@@ -1,0 +1,31 @@
+version: "3.9"
+
+# ── Datathon Anonymizer ───────────────────────────────────────────────────────
+# Opció A — Imatge pre-construïda (recomanada, no requereix internet)
+#   docker compose up -d
+#
+# Opció B — Construir localment des del codi font (requereix internet)
+#   docker compose up --build -d
+#
+# Entorn sense internet (SERGAS, etc.):
+#   Des d'un equip amb internet:
+#     docker pull ghcr.io/ps7pep/local-anonymizer:latest
+#     docker save ghcr.io/ps7pep/local-anonymizer:latest -o local-anonymizer.tar
+#   Al servidor sense internet:
+#     docker load -i local-anonymizer.tar
+#     docker compose up -d
+
+services:
+  anonymizer:
+    image: ghcr.io/ps7pep/local-anonymizer:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: local-anonymizer
+    ports:
+      - "8092:8000"
+    volumes:
+      - ./sample_data:/app/sample_data
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
