@@ -6,15 +6,16 @@ Converteix l'informe Markdown a un document HTML estilitzat i autònom
 des del navegador (Ctrl+P / Imprimir → Desar com a PDF).
 
 No requereix cap dependència externa: usa la llibreria `markdown`
-que ja forma part de l'entorn.
+que ja forma part de l'entorn. Obrir l'informe no fa cap petició de xarxa
+(sense web fonts remotes): s'usen les fonts serif/monospace del sistema.
 """
+
+import html
 
 import markdown as _md_lib
 
 
 _CSS = """
-@import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,wght@0,300;0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap');
-
 :root {
   --accent:   #004e8c;
   --accent2:  #006bb3;
@@ -296,18 +297,20 @@ def generate_html_report(
     title: str,
     filename: str,
     generated_at: str,
-    tool: str = "Datathon Anonymizer v2.0",
+    tool: str = "Datathon Anonymizer",
     confidential_label: str = "DOCUMENT CONFIDENCIAL · ÚS INTERN",
+    lang: str = "es",
 ) -> str:
     """
     Converteix el text Markdown de l'informe a un HTML autònom i estilitzat.
 
     El document resultant:
-    - Té tot el CSS inclòs inline (no requereix connexió a internet per visualitzar-se)
-    - Carrega les fonts de Google Fonts (necessita connexió per veure-les en tota qualitat,
-      però degrada graciosament a Georgia/serif sense connexió)
+    - Té tot el CSS inclòs inline i no fa cap petició externa en obrir-se
     - Imprimeix correctament des del navegador (Ctrl+P → Desar com a PDF)
     - No mostra els símbols Markdown (#, ##, **, etc.)
+
+    Els valors de dades ja arriben escapats des de `report_md`; aquí s'escapen
+    els camps que s'interpolen directament a la portada (nom de fitxer, etc.).
     """
 
     # Eliminem la primera línia (# Títol) perquè la posem a la portada
@@ -352,12 +355,13 @@ def generate_html_report(
     # Post-processem advertiments (⚠ en blockquote)
     # (ja els converteix markdown en <blockquote>)
 
-    html = f"""<!DOCTYPE html>
-<html lang="ca">
+    e = html.escape
+    return f"""<!DOCTYPE html>
+<html lang="{e(lang)}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{title_from_md}</title>
+  <title>{e(title_from_md)}</title>
   <style>{_CSS}</style>
 </head>
 <body>
@@ -365,13 +369,13 @@ def generate_html_report(
 
   <!-- PORTADA -->
   <div class="cover">
-    <h1>{title_from_md}</h1>
+    <h1>{e(title_from_md)}</h1>
     <div class="meta">
-      <strong>{filename}</strong><br>
-      {generated_at}<br>
-      {tool}
+      <strong>{e(filename)}</strong><br>
+      {e(generated_at)}<br>
+      {e(tool)}
     </div>
-    <div class="confidential">{confidential_label}</div>
+    <div class="confidential">{e(confidential_label)}</div>
   </div>
 
   <!-- CONTINGUT DE L'INFORME -->
@@ -380,5 +384,3 @@ def generate_html_report(
 </div>
 </body>
 </html>"""
-
-    return html

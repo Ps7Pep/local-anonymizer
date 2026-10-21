@@ -64,7 +64,7 @@ def _raw_combined() -> pd.DataFrame:
     against — it never relies on index recovery."""
     dfs = []
     for fname in PARTITIONED_FILES:
-        df = pd.read_csv(SAMPLE_DIR / fname)
+        df = pd.read_csv(SAMPLE_DIR / fname, dtype=str)   # same contract as _read_csv
         df.columns = [c.strip().lower() for c in df.columns]
         df, _ = normalize_columns(df)
         assert not validate_dataframe(df), fname
@@ -73,18 +73,18 @@ def _raw_combined() -> pd.DataFrame:
     return pd.concat(dfs, ignore_index=True)
 
 
-def _independent_expected_outputs():
+def _independent_expected_outputs(key):
     """Reproduce the anonymization WITHOUT main.py's index-based source
     recovery: carry `_src_truth` as a normal column through every stage and
     split on it directly. Extra columns survive because every anonymizer
-    function does df.copy() and only mutates pacient/data/item/valor."""
+    function does df.copy() and only mutates pacient/data/item/valor.
+    `key` is the session's HMAC key, read from the in-memory session."""
     combined = _raw_combined()
     core = combined.copy()
     core = compute_date_deltas(core, date_format="iso")
     core, _ = impute_missing_values(core, QUASI)
-    core = hash_patient_ids(core)
     res = apply_k_anonymity(core, QUASI, K)
-    anon = res["df_anonymized"]          # keeps _src_truth column
+    anon = hash_patient_ids(res["df_anonymized"], key)   # hash last, as in main.py
     per_file = {}
     for fname in PARTITIONED_FILES:
         sub = anon[anon["_src_truth"] == fname][["pacient", "data", "item", "valor"]]
@@ -137,15 +137,16 @@ def _run_endpoints():
 @pytest.fixture(scope="module")
 def endpoint_run():
     sid, out, anon_json = _run_endpoints()
-    yield sid, out, anon_json
+    key = sessions[sid]["hash_key"]
+    yield sid, out, anon_json, key
     sessions.pop(sid, None)
 
 
 # ── INV6: index-recovery vs column-carried recovery are identical ─────────────
 
 def test_source_recovery_matches_independent_column(endpoint_run):
-    _, out, _ = endpoint_run
-    expected, _ = _independent_expected_outputs()
+    _, out, _, key = endpoint_run
+    expected, _ = _independent_expected_outputs(key)
     for f in PARTITIONED_FILES:
         got_ms = _rowmultiset(out[f])
         exp_ms = _rowmultiset(expected[f])
@@ -159,17 +160,16 @@ def test_source_recovery_matches_independent_column(endpoint_run):
 # ── INV2: global row conservation — nothing lost, duplicated, or moved ────────
 
 def test_no_row_lost_duplicated_or_moved(endpoint_run):
-    _, out, _ = endpoint_run
+    _, out, _, key = endpoint_run
     # union of all endpoint output rows == rows of surviving patients in the
     # independently transformed combined frame
     combined = _raw_combined()
     core = compute_date_deltas(combined.copy(), date_format="iso")
     core, _ = impute_missing_values(core, QUASI)
-    core = hash_patient_ids(core)
     res = apply_k_anonymity(core, QUASI, K)
     survivors = set(res["df_anonymized"]["pacient"])
 
-    expected_all = core[core["pacient"].isin(survivors)]
+    expected_all = hash_patient_ids(core[core["pacient"].isin(survivors)], key)
     from collections import Counter
     exp = Counter(
         tuple(str(x) for x in row)
@@ -188,7 +188,7 @@ def test_no_row_lost_duplicated_or_moved(endpoint_run):
 # ── INV1: no item bleeds into a file it did not originate from ────────────────
 
 def test_items_stay_in_their_origin_file(endpoint_run):
-    _, out, _ = endpoint_run
+    _, out, _, _ = endpoint_run
     combined = _raw_combined()
     origin = (
         combined.groupby("item")["_src_truth"].agg(lambda s: set(s.unique())).to_dict()
@@ -204,11 +204,11 @@ def test_items_stay_in_their_origin_file(endpoint_run):
 # ── INV3: survivor set identical across files, suppressed appear nowhere ──────
 
 def test_patient_survival_consistent_across_files(endpoint_run):
-    _, out, anon_json = endpoint_run
+    _, out, anon_json, key = endpoint_run
     combined = _raw_combined()
     core = compute_date_deltas(combined.copy(), date_format="iso")
     core, _ = impute_missing_values(core, QUASI)
-    core = hash_patient_ids(core)
+    core = hash_patient_ids(core, key)   # hash every patient here only to compare sets
     res = apply_k_anonymity(core, QUASI, K)
     conforming = set(res["df_anonymized"]["pacient"])
     suppressed = set(core["pacient"]) - conforming
@@ -227,10 +227,10 @@ def test_patient_survival_consistent_across_files(endpoint_run):
 # ── INV4: cross-file hash consistency ─────────────────────────────────────────
 
 def test_same_patient_same_hash_across_files(endpoint_run):
-    _, out, _ = endpoint_run
+    _, out, _, key = endpoint_run
     combined = _raw_combined()
-    import hashlib
-    def h(v): return "H-" + hashlib.sha256(str(v).encode()).hexdigest()[:12]
+    import hashlib, hmac
+    def h(v): return "H-" + hmac.new(key, str(v).encode(), hashlib.sha256).hexdigest()[:12]
     # patients present in >=2 files
     per_file = combined.groupby("pacient")["_src_truth"].nunique()
     multi = per_file[per_file >= 2].index.tolist()
@@ -258,7 +258,7 @@ def test_temporal_reference_is_global_not_per_file(endpoint_run):
     multi-file patients, the minimum delta across ALL their output rows is 0
     exactly once (the true global first visit), and per-file minima are >= the
     global one — i.e. files were NOT rebased independently."""
-    _, out, _ = endpoint_run
+    _, out, _, _ = endpoint_run
     # gather all output rows with their file
     frames = []
     for f in PARTITIONED_FILES:

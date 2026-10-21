@@ -5,7 +5,7 @@
 **[🇬🇧 English](../README.md) · [🇪🇸 Castellano](README.es.md)**
 
 [![Python](https://img.shields.io/badge/Python-3.12-blue?logo=python)](https://python.org)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688?logo=fastapi)](https://fastapi.tiangolo.com)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.156-009688?logo=fastapi)](https://fastapi.tiangolo.com)
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker)](https://docker.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green)](../LICENSE)
 
@@ -45,7 +45,9 @@ Per aturar:
 docker compose down
 ```
 
-> **Port personalitzat**: modifica el port esquerre al `docker-compose.yml` (ex: `"8092:8000"`)
+> **Port i accés per xarxa**: per defecte l'app només escolta a la mateixa màquina (`"127.0.0.1:8092:8000"` al `docker-compose.yml`). Per canviar el port, modifica `8092`. Si l'eina corre en un servidor i s'hi accedeix des d'un altre equip, canvia el mapatge a `"8092:8000"` — deliberadament i només en una xarxa interna de confiança: l'app no té autenticació. Amb `docker run`, fes servir `-p 127.0.0.1:8092:8000`.
+>
+> **Durada de la sessió**: les dades només viuen en memòria i es descarten després de 120 minuts d'inactivitat (`SESSION_TTL_MINUTES` al `docker-compose.yml`), o a l'instant amb «Nova sessió».
 
 ---
 
@@ -123,7 +125,7 @@ Per a cada variable, l'usuari indica el seu rol:
 
 | Rol | Tractament automàtic |
 |-----|---------------------|
-| 🔑 Identificador directe (`pacient`) | Hash SHA-256 irreversible (prefix `H-`) |
+| 🔑 Identificador directe (`pacient`) | HMAC-SHA256 amb clau aleatòria de sessió que mai es desa (prefix `H-`) |
 | 📅 Data (`data`) | Delta enter en **minuts** des de la primera visita del pacient (preserva diferències intra-dia) |
 | 🔍 Quasi-identificador | Generalització definida per l'usuari + k-anonimitat |
 | ✅ No identificatiu | Sense canvis |
@@ -135,14 +137,17 @@ Per a cada quasi-identificador, l'usuari defineix com agrupar els valors:
 - **Variables numèriques** → intervals personalitzats (ex: edat → `0-17`, `18-39`, `40-64`, `65+`)
 - **Variables categòriques** → mapeig de valors originals a categories més àmplies
 
-Els valors absents (NaN) s'imputen automàticament:
+Els valors absents (NaN) s'imputen automàticament sobre els valors originals, abans de generalitzar:
 - Categòrics → `Desconocido`
 - Numèrics → mediana del conjunt observat
+
+Res no queda fora d'una generalització en silenci: els valors numèrics fora dels punts de tall passen a `Fuera de rango`, els no numèrics en un ítem amb intervals a `Desconocido`, i els recomptes (i els valors sense categoria assignada) es mostren als resultats i a l'informe.
 
 ### Fase 4 — K-anonimitat i resultats
 
 - **Simulació prèvia**: mostra l'impacte de k=2, 3, 4, 5 abans d'executar
 - **Paràmetre k**: cada combinació de quasi-identificadors ha de tenir ≥ k pacients
+- **Signatura longitudinal**: la combinació d'un pacient és el conjunt de tots els valors que pren cada quasi-identificador al llarg de les seves visites (p. ex. franja d'edat `60-64 | 65+`), de manera que k es compleix també quan un quasi-identificador canvia entre visites
 - **Supressió**: els pacients en grups per sota de k s'eliminen del dataset final
 - **Mètriques**: flux de pacients, distribució de classes d'equivalència, grups suprimits
 
@@ -156,7 +161,7 @@ La protecció que ofereix aquest procés es fonamenta en **tres capes independen
 
 | Transformació | Protecció |
 |--------------|-----------|
-| Hash SHA-256 de l'identificador | Pseudonimització irreversible |
+| HMAC-SHA256 de l'identificador (clau secreta de sessió, descartada) | Pseudonimització no reversible per atac de diccionari |
 | Timestamp → delta enter en minuts (per pacient) | Dates absolutes destruïdes; patrons intra-dia preservats |
 | Generalització de quasi-IDs | Granularitat de creuament eliminada |
 | K-anonimitat | Impossibilitat matemàtica de singularització |
@@ -230,8 +235,8 @@ local-anonymizer/
 │   ├── dataset_2000p.csv          # Dataset sintètic — 2.000 pacients (un fitxer)
 │   └── 1_… 4_….csv               # Els mateixos 2.000 pacients en 4 fitxers temàtics
 │
-├── generate_synthetic.py          # Script per regenerar el dataset d'un fitxer
-├── generate_multifile_sample.py   # Script per regenerar els 4 fitxers temàtics
+├── generate_synthetic.py          # Genera el dataset sintètic (perfil fix per pacient)
+├── generate_multifile_sample.py   # El reparteix en els 4 fitxers temàtics (partició exacta)
 ├── Dockerfile
 ├── docker-compose.yml
 ├── requirements.txt

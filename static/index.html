@@ -1,312 +1,318 @@
 <!DOCTYPE html>
-<html lang="ca">
+<html lang="es">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Datathon Anonymizer</title>
-  <link rel="stylesheet" href="/static/css/styles.css">
+  <link rel="stylesheet" href="/static/css/styles.css?v=4.0.0">
 </head>
 <body>
 
 <!-- ─── Sidebar ──────────────────────────────────────────────────────────── -->
 <aside class="sidebar">
-  <div class="sidebar-logo">
-    <div class="logo-mark">🔐</div>
-    <h1 data-lang="appTitle">Datathon Anonymizer</h1>
-    <p data-lang="appSubtitle">Anonimització clínica local</p>
+  <div class="brand">
+    <div class="brand-mark">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="1"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
+    </div>
+    <div>
+      <div class="brand-name" data-lang="appTitle">Datathon Anonymizer</div>
+      <div class="brand-sub" data-lang="appSubtitle">Anonimización clínica local</div>
+    </div>
   </div>
 
-  <div class="lang-switcher">
-    <button class="lang-btn active" data-lang="ca" onclick="setLang('ca')">CAT</button>
-    <button class="lang-btn"        data-lang="es" onclick="setLang('es')">CAS</button>
-    <button class="lang-btn"        data-lang="en" onclick="setLang('en')">ENG</button>
+  <div class="lang-switcher" role="group" aria-label="Idioma · Language">
+    <button type="button" class="lang-btn"        data-code="ca" onclick="setLang('ca')">CAT</button>
+    <button type="button" class="lang-btn active" data-code="es" onclick="setLang('es')">CAS</button>
+    <button type="button" class="lang-btn"        data-code="en" onclick="setLang('en')">ENG</button>
   </div>
 
-  <nav class="sidebar-steps">
-    <div class="step-item active" id="nav-1">
-      <div class="step-num">1</div>
-      <div>
-        <div class="step-label" data-lang="step1">Importació</div>
-        <div class="step-sublabel" data-lang="step1sub">Carregar CSV</div>
-      </div>
-    </div>
-    <div class="step-item" id="nav-2">
-      <div class="step-num">2</div>
-      <div>
-        <div class="step-label" data-lang="step2">Classificació</div>
-        <div class="step-sublabel" data-lang="step2sub">Definir ítems</div>
-      </div>
-    </div>
-    <div class="step-item" id="nav-3">
-      <div class="step-num">3</div>
-      <div>
-        <div class="step-label" data-lang="step3">Generalització</div>
-        <div class="step-sublabel" data-lang="step3sub">Agrupar valors</div>
-      </div>
-    </div>
-    <div class="step-item" id="nav-4">
-      <div class="step-num">4</div>
-      <div>
-        <div class="step-label" data-lang="step4">Resultats</div>
-        <div class="step-sublabel" data-lang="step4sub">Mètriques i descàrrega</div>
-      </div>
-    </div>
+  <nav class="steps" aria-label="Fases">
+    <ol>
+      <li class="step-item active" id="nav-1"><button type="button" class="step-btn" onclick="navStep(1)">
+        <span class="step-num">1</span>
+        <span><span class="step-label" data-lang="step1">Importación</span><span class="step-sublabel" data-lang="step1sub">Cargar ficheros</span></span>
+      </button></li>
+      <li class="step-item" id="nav-2"><button type="button" class="step-btn" onclick="navStep(2)">
+        <span class="step-num">2</span>
+        <span><span class="step-label" data-lang="step2">Clasificación</span><span class="step-sublabel" data-lang="step2sub">Definir variables</span></span>
+      </button></li>
+      <li class="step-item" id="nav-3"><button type="button" class="step-btn" onclick="navStep(3)">
+        <span class="step-num">3</span>
+        <span><span class="step-label" data-lang="step3">Generalización</span><span class="step-sublabel" data-lang="step3sub">Agrupar valores</span></span>
+      </button></li>
+      <li class="step-item" id="nav-4"><button type="button" class="step-btn" onclick="navStep(4)">
+        <span class="step-num">4</span>
+        <span><span class="step-label" data-lang="step4">Resultados</span><span class="step-sublabel" data-lang="step4sub">k-anonimidad y descarga</span></span>
+      </button></li>
+    </ol>
   </nav>
 
-  <div class="sidebar-footer" data-lang="footerNote">
-    Cap dada surt del servidor · Execució 100% local
+  <div class="sidebar-footer">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"></path></svg>
+    <span data-lang="footerNote">Ningún dato sale de este equipo · Ejecución 100 % local</span>
   </div>
 </aside>
 
 <!-- ─── Main ─────────────────────────────────────────────────────────────── -->
-<main class="main">
+<main class="main"><div class="main-inner">
 
   <!-- ── FASE 1: Importació ────────────────────────────────────────────────── -->
-  <div class="phase active" id="phase-1">
-    <div class="phase-header">
-      <div class="phase-tag" data-lang="ph1Tag">Fase 01</div>
-      <h2 data-lang="ph1Title">Carrega el fitxer CSV</h2>
-      <p data-lang="ph1Desc">El fitxer ha de tenir exactament 4 columnes: <code>pacient</code>, <code>data</code>, <code>item</code>, <code>valor</code>.</p>
+  <section class="phase active" id="phase-1">
+    <header class="phase-header">
+      <div class="phase-tag" data-lang="ph1Tag">Fase 01 de 04</div>
+      <h1 data-lang="ph1Title">Carga los ficheros CSV</h1>
+      <p data-lang="ph1Desc"></p>
+    </header>
+
+    <div class="note">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 8h.01M11 12h1v5h1"></path></svg>
+      <div data-lang="singleDatasetBanner"></div>
     </div>
 
-    <div class="alert alert-warn" data-lang="singleDatasetBanner">
-      ⚠️ <strong>Una sessió = un dataset.</strong> Si tens dades de línies assistencials independents (atenció primària, hospitalària, sociosanitària…), has d'executar una sessió per a cadascuna i mantenir-les separades. El mode multi-fitxer és <strong>només</strong> per a un mateix dataset trossejat per dominis temàtics (mateixos pacients, variables sense solapar).
-    </div>
-
-    <div class="card">
+    <div class="card" id="upload-card">
       <div class="upload-zone" id="upload-zone">
-        <input type="file" id="file-input" accept=".csv" multiple>
-        <div class="upload-icon">📂</div>
-        <h3 id="drop-title" data-lang="dropZoneTitle">Arrossega els CSV aquí</h3>
-        <p data-lang="dropZoneSub">o fes clic per seleccionar · un o més fitxers · UTF-8, Latin-1, CP1252</p>
+        <input type="file" id="file-input" accept=".csv" multiple aria-labelledby="drop-title">
+        <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color:var(--accent)"><path d="M12 16V4M7 9l5-5 5 5"></path><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"></path></svg>
+        <h3 id="drop-title" data-lang="dropZoneTitle">Arrastra aquí los ficheros CSV</h3>
+        <p data-lang="dropZoneSub"></p>
       </div>
-      <div id="files-list" style="display:none; margin-top:0.75rem;"></div>
-      <div id="upload-error" class="alert alert-danger" style="display:none; margin-top:0.85rem;"></div>
+      <div class="file-summary" id="file-summary" style="display:none;">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><path d="M14 3v6h6"></path></svg>
+        <div class="fs-text" id="files-list"></div>
+        <button type="button" class="btn btn-secondary btn-sm" id="change-files-btn" onclick="startOver()" data-lang="btnChangeFiles">Cambiar ficheros</button>
+      </div>
+      <div id="upload-error" class="alert alert-danger" role="alert" style="display:none; margin-top:14px;"></div>
     </div>
 
-    <div class="card" id="mapping-confirm-card" style="display:none; border-color:var(--amber);">
-      <div class="card-title" data-lang="mapTitle">⚠️ Confirma la correspondència de columnes</div>
-      <div class="input-help" style="margin-bottom:0.85rem;" data-lang="mapDesc">
-        No s'ha pogut detectar pel nom alguna de les 4 columnes esperades (<code>pacient</code>, <code>data</code>, <code>item</code>, <code>valor</code>). S'ha fet una proposta basada en l'ordre de les columnes. Revisa-la i ajusta-la si cal abans de continuar.
-      </div>
+    <div class="card attention" id="mapping-confirm-card" style="display:none;">
+      <h2 class="card-title" data-lang="mapTitle">Confirma qué columna es cada campo</h2>
+      <p class="input-help" style="margin-bottom:16px;" data-lang="mapDesc"></p>
       <div id="mapping-confirm-body"></div>
-      <div id="mapping-error" class="alert alert-danger" style="display:none; margin-top:0.85rem;"></div>
-      <div class="btn-group" style="margin-top:1rem;">
-        <button class="btn btn-secondary" onclick="startOver()" data-lang="mapCancel">← Cancel·la</button>
-        <button class="btn btn-primary" onclick="confirmMapping()" data-lang="mapConfirm">Confirma i continua →</button>
+      <div id="mapping-error" class="alert alert-danger" role="alert" style="display:none; margin-top:14px;"></div>
+      <div class="btn-group" style="margin-top:16px;">
+        <button type="button" class="btn btn-secondary" onclick="startOver()" data-lang="mapCancel">Cancelar</button>
+        <button type="button" class="btn btn-primary" onclick="confirmMapping()" data-lang="mapConfirm">Confirmar y continuar</button>
       </div>
     </div>
 
-    <div id="upload-results" style="display:none;">
+    <div id="upload-results" style="display:none; flex-direction:column; gap:20px;">
       <div class="stats-grid" id="stats-grid"></div>
+      <div id="coherence-alert" class="alert alert-warn" style="display:none;"></div>
 
-      <div class="card" id="multifile-confirm-card" style="display:none; border-color:var(--amber);">
-        <div class="card-title" data-lang="multifileConfirmTitle">⚠️ Confirma la relació entre fitxers</div>
-        <div class="input-help" style="margin-bottom:0.85rem;" data-lang="multifileConfirmDesc">
-          Has pujat <strong><span id="multifile-n">0</span> fitxers</strong>. Aquesta eina <strong>els concatenarà i els processarà com un sol dataset</strong>. Confirma que pertanyen al mateix dataset abans de continuar.
-        </div>
-        <div class="table-wrap" style="margin-bottom:0.85rem;">
+      <div class="card attention" id="multifile-confirm-card" style="display:none;">
+        <h2 class="card-title" data-lang="multifileConfirmTitle">Confirma la relación entre los ficheros</h2>
+        <p class="input-help" style="margin-bottom:14px;" data-lang="multifileConfirmDesc"></p>
+        <div class="table-wrap" style="margin-bottom:14px;">
           <table id="multifile-stats-table">
             <thead><tr>
-              <th data-lang="mfColFile">Fitxer</th>
-              <th data-lang="mfColRecords">Registres</th>
-              <th data-lang="mfColPatients">Pacients únics</th>
-              <th data-lang="mfColItems">Variables</th>
+              <th data-lang="mfColFile">Fichero</th>
+              <th class="num" data-lang="mfColRecords">Registros</th>
+              <th class="num" data-lang="mfColPatients">Pacientes únicos</th>
+              <th class="num" data-lang="mfColItems">Variables</th>
             </tr></thead>
             <tbody></tbody>
           </table>
         </div>
-        <div id="multifile-overlap-summary" style="font-family:var(--mono); font-size:0.85rem; margin-bottom:0.85rem;"></div>
-        <label style="display:flex; align-items:flex-start; gap:0.55rem; cursor:pointer; padding:0.65rem; background:var(--surface2); border:1px solid var(--border); border-radius:var(--r-sm);">
-          <input type="checkbox" id="multifile-confirm-checkbox" style="margin-top:0.2rem; cursor:pointer;" onchange="updateContinueGate()">
-          <span data-lang="multifileConfirmCheckbox"><strong>Confirmo</strong> que aquests fitxers corresponen al <strong>mateix dataset</strong> (mateix univers de pacients, variables clíniques no solapades entre fitxers).</span>
+        <div id="multifile-overlap-summary" style="font-size:13.5px; margin-bottom:14px;"></div>
+        <label class="check-label" style="align-items:flex-start; padding:12px; background:var(--surface2); border-radius:var(--r);">
+          <input type="checkbox" id="multifile-confirm-checkbox" style="margin-top:3px;" onchange="updateContinueGate()">
+          <span data-lang="multifileConfirmCheckbox"></span>
         </label>
-        <div style="margin-top:0.65rem; font-size:0.78rem; color:var(--text-muted);">
-          <span data-lang="multifileIndependentHint">Si en realitat són datasets independents (ex: línies assistencials diferents),</span>
-          <a href="#" onclick="event.preventDefault(); startOver();" style="color:var(--accent); text-decoration:underline;" data-lang="multifileIndependentLink">cancel·la i comença de nou amb un sol dataset per sessió</a>.
+        <div style="margin-top:10px; font-size:13px; color:var(--text-muted);">
+          <span data-lang="multifileIndependentHint"></span>
+          <button type="button" class="btn btn-link" onclick="startOver()" data-lang="multifileIndependentLink"></button>
         </div>
       </div>
 
-      <div class="card">
-        <div class="card-title" data-lang="colProfile">Perfil d'ítems</div>
+      <div class="card" id="date-format-card">
+        <h2 class="card-title" data-lang="dateFormatTitle">Formato de las fechas</h2>
+        <p class="input-help" style="margin-bottom:12px;" data-lang="dateFormatDesc"></p>
+        <div id="date-format-warning" class="alert alert-warn" style="display:none; margin-bottom:12px;"></div>
+        <div class="segmented" id="date-format-toggle" role="group">
+          <button type="button" class="type-btn" data-fmt="iso"        onclick="setDateFormat('iso')"><span data-lang="fmtIso">ISO (AAAA-MM-DD)</span><span class="detected"></span></button>
+          <button type="button" class="type-btn" data-fmt="dayfirst"   onclick="setDateFormat('dayfirst')"><span data-lang="fmtDay">Día primero</span><span class="detected"></span></button>
+          <button type="button" class="type-btn" data-fmt="monthfirst" onclick="setDateFormat('monthfirst')"><span data-lang="fmtMonth">Mes primero</span><span class="detected"></span></button>
+        </div>
+        <div class="table-wrap" style="margin-top:12px;">
+          <table id="date-samples-table">
+            <thead><tr>
+              <th data-lang="dateColRaw">Valor original</th>
+              <th data-lang="dateColParsed">Interpretado como</th>
+            </tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div id="date-format-stats" class="input-help mono" style="margin-top:8px;"></div>
+      </div>
+
+      <details class="card">
+        <summary><span data-lang="colProfile">Variables detectadas</span>&nbsp;<span id="items-count" class="counter"></span></summary>
         <div class="table-wrap">
           <table>
             <thead>
               <tr>
-                <th data-lang="colName">Ítem</th>
-                <th data-lang="colType">Tipus</th>
-                <th data-lang="colUnique">Únics</th>
-                <th data-lang="colRecords">Registres</th>
-                <th data-lang="colSample">Mostra de valors</th>
+                <th data-lang="colName">Variable</th>
+                <th data-lang="colType">Tipo</th>
+                <th class="num" data-lang="colUnique">Valores únicos</th>
+                <th class="num" data-lang="colRecords">Registros</th>
+                <th data-lang="colSample">Valores de ejemplo</th>
               </tr>
             </thead>
             <tbody id="items-tbody"></tbody>
           </table>
         </div>
-      </div>
+      </details>
 
-      <div class="card">
-        <div class="card-title" data-lang="previewTitle">Previsualització</div>
+      <details class="card">
+        <summary data-lang="previewTitle">Primeras filas del fichero</summary>
         <div class="table-wrap">
           <table id="preview-table"><thead></thead><tbody></tbody></table>
         </div>
-      </div>
-
-      <div class="card" id="date-format-card">
-        <div class="card-title" data-lang="dateFormatTitle">Format de timestamp</div>
-        <div class="input-help" style="margin-bottom:0.65rem;" data-lang="dateFormatDesc">
-          La columna <code>data</code> s'ha detectat automàticament. Si la previsualització no és correcta, força un altre format.
-        </div>
-        <div id="date-format-warning" class="alert alert-warn" style="display:none; margin-bottom:0.65rem;"></div>
-        <div class="type-toggle" id="date-format-toggle">
-          <button class="type-btn" data-fmt="iso"        onclick="setDateFormat('iso')"        data-lang="fmtIso">ISO (YYYY-MM-DD)</button>
-          <button class="type-btn" data-fmt="dayfirst"   onclick="setDateFormat('dayfirst')"   data-lang="fmtDay">Day first (DD/MM/YYYY)</button>
-          <button class="type-btn" data-fmt="monthfirst" onclick="setDateFormat('monthfirst')" data-lang="fmtMonth">Month first (MM/DD/YYYY)</button>
-        </div>
-        <div class="table-wrap" style="margin-top:0.65rem;">
-          <table id="date-samples-table">
-            <thead><tr>
-              <th data-lang="dateColRaw">Valor original</th>
-              <th data-lang="dateColParsed">Interpretat com</th>
-            </tr></thead>
-            <tbody></tbody>
-          </table>
-        </div>
-        <div id="date-format-stats" style="margin-top:0.5rem;font-size:0.78rem;color:var(--text-muted);font-family:var(--mono);"></div>
-      </div>
+      </details>
 
       <div class="btn-group">
-        <button class="btn btn-primary" id="phase1-continue-btn" onclick="goToPhase(2)" data-lang="btnNext">Continuar →</button>
+        <button type="button" class="btn btn-primary" id="phase1-continue-btn" onclick="goToPhase(2)" data-lang="btnNext">Continuar</button>
+        <span class="gate-hint" id="continue-hint" style="display:none;" data-lang="continueHintMulti"></span>
       </div>
     </div>
-  </div>
+  </section>
 
 
   <!-- ── FASE 2: Classificació ─────────────────────────────────────────────── -->
-  <div class="phase" id="phase-2">
-    <div class="phase-header">
-      <div class="phase-tag" data-lang="ph2Tag">Fase 02</div>
-      <h2 data-lang="ph2Title">Classifica els ítems</h2>
-      <p data-lang="ph2Desc">Indica el rol de cada ítem en el procés d'anonimització.</p>
-    </div>
+  <section class="phase" id="phase-2">
+    <header class="phase-header">
+      <div class="phase-tag" data-lang="ph2Tag">Fase 02 de 04</div>
+      <h1 data-lang="ph2Title">Clasifica las variables</h1>
+      <p data-lang="ph2Desc"></p>
+    </header>
 
-    <div class="info-box fixed" data-lang="infoPatient">
-      🔑 <strong>pacient</strong> — S'aplicarà hash SHA-256 irreversible automàticament.
-    </div>
-    <div class="info-box fixed" data-lang="infoDate">
-      📅 <strong>data</strong> — Es convertirà a delta d'enters en <strong>minuts</strong> des de la primera visita de cada pacient.
-    </div>
-
-    <div class="card" style="margin-top:1rem;">
-      <div class="card-title" data-lang="infoItems">Classificació dels ítems</div>
-      <div class="item-classify-grid" id="classify-grid"></div>
-    </div>
-
-    <div id="classify-error" class="alert alert-danger" style="display:none;"></div>
-    <div class="btn-group">
-      <button class="btn btn-secondary" onclick="goToPhase(1)" data-lang="btnBack">← Enrere</button>
-      <button class="btn btn-primary"   onclick="saveClassifications()" data-lang="btnClassify">Desar i continuar →</button>
-    </div>
-  </div>
-
-
-  <!-- ── FASE 3: Generalitzacions ──────────────────────────────────────────── -->
-  <div class="phase" id="phase-3">
-    <div class="phase-header">
-      <div class="phase-tag" data-lang="ph3Tag">Fase 03</div>
-      <h2 data-lang="ph3Title">Defineix les generalitzacions</h2>
-      <p data-lang="ph3Desc">Per a cada quasi-identificador, defineix com s'agruparà per reduir el risc de reidentificació.</p>
-    </div>
-
-    <div id="no-quasi-alert" class="alert alert-warn" style="display:none;" data-lang="noQuasi"></div>
-    <div id="qi-blocks-container"></div>
-
-    <div id="gen-error" class="alert alert-danger" style="display:none;"></div>
-    <div class="btn-group">
-      <button class="btn btn-secondary" onclick="goToPhase(2)" data-lang="btnBack">← Enrere</button>
-      <button class="btn btn-primary"   onclick="saveGeneralizations()" data-lang="btnSaveGen">Desar i continuar →</button>
-    </div>
-  </div>
-
-
-  <!-- ── FASE 4: K-anonimitat i resultats ─────────────────────────────────── -->
-  <div class="phase" id="phase-4">
-    <div class="phase-header">
-      <div class="phase-tag" data-lang="ph4Tag">Fase 04</div>
-      <h2 data-lang="ph4Title">K-anonimitat i resultats</h2>
-      <p data-lang="ph4Desc">Defineix el valor de <strong>k</strong> i executa l'anonimització.</p>
+    <div class="card">
+      <h2 class="card-title" data-lang="autoTitle">Se tratan automáticamente</h2>
+      <dl class="auto-list">
+        <div><dt><code>pacient</code></dt><dd data-lang="infoPatient"></dd></div>
+        <div><dt><code>data</code></dt><dd data-lang="infoDate"></dd></div>
+      </dl>
     </div>
 
     <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:12px;">
+        <h2 class="card-title" data-lang="infoItems">Variables del dataset</h2>
+        <span class="counter" id="quasi-counter" aria-live="polite"></span>
+      </div>
+      <div class="qi-help" data-lang="qiHelp"></div>
+      <div class="toolbar">
+        <label for="item-filter" class="visually-hidden" data-lang="filterLabel">Buscar variable</label>
+        <input type="search" id="item-filter" class="input-field" data-lang="filterPlaceholder" placeholder="Buscar variable…" oninput="renderClassify()">
+        <label class="check-label"><input type="checkbox" id="filter-quasi" onchange="renderClassify()"> <span data-lang="filterOnlyQuasi">Mostrar solo cuasi-identificadores</span></label>
+      </div>
+      <div class="item-classify-grid" id="classify-grid"></div>
+    </div>
+
+    <div id="classify-error" class="alert alert-danger" role="alert" style="display:none;"></div>
+    <div class="btn-group split">
+      <button type="button" class="btn btn-secondary" onclick="goToPhase(1)" data-lang="btnBack">← Atrás</button>
+      <button type="button" class="btn btn-primary" onclick="saveClassifications()" data-lang="btnClassify">Guardar y continuar</button>
+    </div>
+  </section>
+
+
+  <!-- ── FASE 3: Generalitzacions ──────────────────────────────────────────── -->
+  <section class="phase" id="phase-3">
+    <header class="phase-header">
+      <div class="phase-tag" data-lang="ph3Tag">Fase 03 de 04</div>
+      <h1 data-lang="ph3Title">Agrupa los cuasi-identificadores</h1>
+      <p data-lang="ph3Desc"></p>
+    </header>
+
+    <div id="no-quasi-alert" class="alert alert-warn" style="display:none;" data-lang="noQuasi"></div>
+    <div id="qi-blocks-container" style="display:flex; flex-direction:column; gap:14px;"></div>
+
+    <div id="gen-error" class="alert alert-danger" role="alert" style="display:none;"></div>
+    <div class="btn-group split">
+      <button type="button" class="btn btn-secondary" onclick="goToPhase(2)" data-lang="btnBack">← Atrás</button>
+      <button type="button" class="btn btn-primary" onclick="saveGeneralizations()" data-lang="btnSaveGen">Guardar y continuar</button>
+    </div>
+  </section>
+
+
+  <!-- ── FASE 4: K-anonimitat i resultats ─────────────────────────────────── -->
+  <section class="phase" id="phase-4">
+    <header class="phase-header">
+      <div class="phase-tag" data-lang="ph4Tag">Fase 04 de 04</div>
+      <h1 data-lang="ph4Title">K-anonimidad y resultados</h1>
+      <p data-lang="ph4Desc"></p>
+    </header>
+
+    <div class="card">
       <div class="k-row">
-        <div class="k-label">k =</div>
-        <input type="number" class="k-number" id="k-value" min="2" max="500" value="5">
+        <div class="input-group">
+          <label for="k-value" data-lang="kLabel">Valor de k</label>
+          <input type="number" class="k-number" id="k-value" min="2" max="500" value="5" oninput="onKChange()">
+        </div>
         <div class="k-desc">
-          <div data-lang="kExplain">Cada grup de quasi-identificadors ha de contenir almenys <strong>k</strong> pacients.</div>
-          <div style="margin-top:0.4rem; font-size:0.78rem; color:var(--text-muted);" data-lang="kRecommend"></div>
+          <div data-lang="kExplain"></div>
+          <div class="muted" data-lang="kRecommend"></div>
         </div>
       </div>
     </div>
 
-    <!-- Simulació de k -->
-    <div class="card" id="k-sim-card" style="display:none;">
-      <div class="card-title" data-lang="kSimTitle">Simulació k=2..5</div>
+    <div class="card flush" id="k-sim-card">
+      <div class="card-head">
+        <h2 class="card-title" data-lang="kSimTitle">Impacto de cada valor de k</h2>
+        <button type="button" class="btn btn-outline btn-sm" id="sim-btn" onclick="runSimulation()">
+          <span id="sim-spinner" class="spinner" style="display:none;"></span>
+          <span data-lang="btnSimulate">Volver a simular</span>
+        </button>
+      </div>
       <div id="k-sim-content"></div>
     </div>
-    <div class="btn-group" style="margin-top:0; margin-bottom:1.25rem;">
-      <button class="btn btn-secondary" id="sim-btn" onclick="runSimulation()">
-        <span id="sim-spinner" class="spinner" style="display:none;"></span>
-        <span data-lang="btnSimulate">🔭 Simular k=2..5</span>
-      </button>
-    </div>
 
-    <div id="phase4-error" class="alert alert-danger" style="display:none;"></div>
-    <div class="btn-group">
-      <button class="btn btn-secondary" onclick="goToPhase(3)" data-lang="btnBack">← Enrere</button>
-      <button class="btn btn-success" id="run-btn" onclick="runAnonymization()">
+    <div id="phase4-error" class="alert alert-danger" role="alert" style="display:none;"></div>
+    <div class="btn-group split">
+      <button type="button" class="btn btn-secondary" onclick="goToPhase(3)" data-lang="btnBack">← Atrás</button>
+      <button type="button" class="btn btn-primary" id="run-btn" onclick="runAnonymization()">
         <span id="run-spinner" class="spinner" style="display:none;"></span>
-        <span data-lang="btnRun">🚀 Executar anonimització</span>
+        <span id="run-label"></span>
       </button>
     </div>
 
     <!-- Resultats (es mostren aquí un cop executat) -->
-    <div id="results-section" style="display:none; margin-top:2rem;">
-      <div class="card-title" style="margin-bottom:1rem;">📊 <span data-lang="resEqTitle">Classes d'equivalència</span></div>
-
-      <div class="result-grid" id="result-stats-grid"></div>
+    <div id="results-section" style="display:none; flex-direction:column; gap:20px; padding-top:8px;">
+      <div id="gen-log-alert" class="alert alert-warn" style="display:none;"></div>
+      <div id="high-loss-alert" class="alert alert-warn" style="display:none;"></div>
 
       <div class="card">
-        <div class="card-title" data-lang="resLossTitle">Taxa d'eliminació</div>
-        <div class="progress-wrap">
-          <div class="progress-fill" id="loss-bar" style="width:0%;"></div>
+        <h2 class="card-title" data-lang="resTitle">Resultado</h2>
+        <div class="result-strip" id="result-stats-grid"></div>
+        <div class="progress-wrap"><div class="progress-fill" id="loss-bar" style="width:0%;"></div></div>
+        <div class="progress-label" id="loss-label"></div>
+      </div>
+
+      <div class="card flush">
+        <div class="card-head">
+          <h2 class="card-title" data-lang="downloadTitle">Descargas</h2>
+          <span class="card-sub" id="report-lang-note"></span>
         </div>
-        <div id="loss-label" style="font-size:0.78rem; color:var(--text-muted);"></div>
+        <div class="download-list" id="download-grid"></div>
       </div>
 
-      <div class="card">
-        <div class="card-title" data-lang="resDistTitle">Distribució de mides de grup</div>
-        <div id="eq-distribution"></div>
-      </div>
-
-      <div class="card" id="suppressed-card">
-        <div class="card-title" data-lang="resSuppTitle">Grups eliminats</div>
+      <details class="card">
+        <summary data-lang="resDetailTitle">Detalle de las clases de equivalencia</summary>
+        <h3 class="card-title" style="margin-bottom:10px;" data-lang="resDistTitle">Distribución de tamaños de grupo</h3>
+        <div id="eq-distribution" class="dist-wrap" style="margin-bottom:20px;"></div>
+        <h3 class="card-title" style="margin-bottom:10px;" data-lang="resSuppTitle">Grupos eliminados</h3>
         <div id="suppressed-content"></div>
-      </div>
-
-      <div class="card">
-        <div class="card-title" data-lang="downloadTitle">Descàrregues</div>
-        <div class="download-grid" id="download-grid"></div>
-      </div>
+      </details>
 
       <div class="btn-group">
-        <button class="btn btn-secondary" onclick="startOver()" data-lang="btnNewSession">🔄 Nova sessió</button>
+        <button type="button" class="btn btn-secondary" onclick="startOver()" data-lang="btnNewSession">Nueva sesión</button>
       </div>
     </div>
-  </div>
+  </section>
 
-</main>
+</div></main>
 
-<script src="/static/js/i18n.js?v=20260519"></script>
-<script src="/static/js/app.js?v=20260519"></script>
+<script src="/static/js/i18n.js?v=4.0.0"></script>
+<script src="/static/js/app.js?v=4.0.0"></script>
 </body>
 </html>

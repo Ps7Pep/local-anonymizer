@@ -1,7 +1,32 @@
 """
 report_md.py  —  Genera l'informe d'anonimització en Markdown (ca/es/en)
+
+Tot valor que prové del CSV o de l'usuari (noms d'ítem, valors, etiquetes,
+noms de fitxer) passa per `_code` o `_txt`: `markdown` deixa passar HTML cru,
+i l'informe HTML s'obre al navegador del DPO.
 """
 import datetime
+import html
+import re
+
+
+def _txt(value) -> str:
+    """Text pla segur dins de Markdown/HTML (també dins de cel·les de taula)."""
+    s = html.escape(str(value).replace("\n", " "), quote=False)
+    return re.sub(r"([\\`*_\[\]|])", r"\\\1", s)
+
+
+def _code(value) -> str:
+    """Code span segur: el delimitador és més llarg que qualsevol tira de
+    backticks del valor, perquè el valor no pugui tancar-lo i escapar-se'n.
+    Markdown ja escapa `<`, `>` i `&` dins dels code spans."""
+    s = str(value).replace("\n", " ")
+    if not s.strip():
+        return '`""`'
+    longest = max((len(m) for m in re.findall(r"`+", s)), default=0)
+    fence   = "`" * (longest + 1)
+    pad     = " " if longest else ""
+    return f"{fence}{pad}{s}{pad}{fence}"
 
 T = {
 "ca": {
@@ -29,18 +54,26 @@ T = {
 "summary_method":("La tècnica principal aplicada és la **k-anonimitat**, que garanteix que cada "
 "combinació de quasi-identificadors aparegui en almenys **k** registres, "
 "fent matemàticament impossible la singularització d'un individu. "
-"Complementàriament, s'han aplicat hash irreversible als identificadors directes "
-"i conversió a delta temporal de les dates."),
+"Complementàriament, s'han pseudonimitzat els identificadors directes amb un hash amb clau secreta "
+"i s'han convertit les dates a delta temporal."),
 "summary_result":"El resultat del procés ha estat:",
+"kanon_label":"K-anonimitat","none":"_(cap)_","and_more":"i {n} més",
 "ds_patients":"Pacients únics","ds_records":"Registres totals","ds_items":"Variables (ítems)",
-"ds_date_range":"Rang de dates","ds_col_mapping":"Correspondència de columnes detectada",
-"ds_original_col":"Columna original al CSV","ds_canonical_col":"Columna canònica interna",
+"ds_date_range":"Rang de dates","ds_col_mapping":"Correspondència de columnes (columna original al CSV → columna canònica interna)",
+"ds_file":"Fitxer",
+"ds_dropped":"Files descartades (sense pacient o sense variable)",
+"ds_duplicates":"Files idèntiques repetides (conservades)",
 "meth_intro":("El procés d'anonimització s'ha estructurat en les fases següents, "
 "aplicades de forma seqüencial sobre el dataset:"),
-"meth_step1_title":"Fase 1 — Normalització de columnes",
-"meth_step1_body":("El sistema ha detectat automàticament les columnes del CSV i les ha mapejat "
-"als noms canònics interns (`pacient`, `data`, `item`, `valor`), "
-"acceptant variantes habituals com `patient_id`, `variable`, `value`, etc."),
+"meth_step1_title":"Fase 1 — Normalització i coherència del dataset",
+"meth_step1_body":("Abans de cap transformació s'ha assegurat la coherència del dataset:\n\n"
+"- Les columnes de cada fitxer s'han mapejat als noms canònics interns (`pacient`, `data`, `item`, `valor`), "
+"per àlies habituals (`patient_id`, `variable`, `value`…) o amb confirmació explícita de l'usuari.\n"
+"- Tots els valors s'han llegit com a text, sense inferència de tipus: els identificadors es conserven "
+"exactament (p. ex. `0012` no passa a `12` ni a `12.0`) i són comparables entre fitxers.\n"
+"- S'han eliminat els espais als extrems dels identificadors i descartat les files sense pacient o sense variable.\n"
+"- Quan hi ha més d'un fitxer, s'han combinat en un sol dataset abans de transformar res, de manera que "
+"les dates, la imputació i la k-anonimitat es calculen sobre tota la informació de cada pacient."),
 "meth_step2_title":"Fase 2 — Transformació de dates",
 "meth_step2_body":("Totes les dates absolutes han estat substituïdes per un **delta enter de minuts** "
 "calculat com la diferència respecte a la primera visita de cada pacient. "
@@ -50,28 +83,38 @@ T = {
 "- Visites posteriors → nombre de minuts transcorreguts des de la primera\n"
 "- Si el timestamp original només contenia data (sense hora), el delta serà múltiple de 1440\n"
 "- Les dates originals no es conserven en cap forma al dataset de sortida"),
-"meth_step3_title":"Fase 3 — Pseudonimització de l'identificador de pacient",
-"meth_step3_body":("L'identificador de pacient ha estat substituït per un **hash SHA-256** "
+"meth_step3_title":"Fase 6 — Pseudonimització de l'identificador de pacient",
+"meth_step3_body":("L'identificador de pacient ha estat substituït per un **HMAC-SHA256** "
 "truncat als primers 12 caràcters hexadecimals, amb el prefix `H-`. "
-"Aquesta transformació és **irreversible**: és computacionalment inviable recuperar "
-"l'identificador original a partir del hash sense accés a la taula original."),
-"meth_step4_title":"Fase 4 — Generalització de quasi-identificadors",
-"meth_step4_body":("Els ítems classificats com a **quasi-identificadors** han estat generalitzats "
+"La clau de l'HMAC és **aleatòria, secreta i exclusiva d'aquesta sessió**: només ha existit "
+"a la memòria de l'eina durant el procés i no es conserva enlloc. Sense la clau no és possible "
+"recalcular els hashos a partir d'una llista d'identificadors candidats (atac de diccionari), "
+"i un cop tancada la sessió la correspondència pacient → hash és **irrecuperable**. "
+"El mateix pacient rep el mateix hash a tots els fitxers d'aquesta sessió.\n\n"
+"La pseudonimització s'aplica **al final del procés**, un cop el dataset és coherent, agrupat i k-anònim, "
+"i només sobre els registres que es publiquen."),
+"meth_step4_title":"Fase 3 — Imputació de valors absents",
+"meth_step4_body":("Els valors absents (NaN) dels quasi-identificadors han estat imputats sobre els "
+"valors originals, abans de generalitzar, per evitar la formació de grups d'equivalència unitaris:\n\n"
+"- **Variables categòriques**: substituïts per `Desconocido`\n"
+"- **Variables numèriques**: substituïts per la mediana de l'ítem al dataset"),
+"meth_step5_title":"Fase 4 — Generalització de quasi-identificadors",
+"meth_step5_body":("Els ítems classificats com a **quasi-identificadors** han estat generalitzats "
 "per reduir la seva granularitat i limitar el risc de reidentificació per creuament. "
 "Per a variables numèriques s'han definit intervals (binning); "
-"per a variables categòriques s'han agrupat valors en categories de major amplitud."),
-"meth_step5_title":"Fase 5 — Imputació de valors absents",
-"meth_step5_body":("Abans d'aplicar la k-anonimitat, els valors absents (NaN) dels quasi-identificadors "
-"han estat imputats per evitar la formació de grups d'equivalència unitaris:\n\n"
-"- **Variables categòriques**: substituïts per `Desconocido`\n"
-"- **Variables numèriques**: substituïts per la mediana del ítem al dataset"),
-"meth_step6_title":"Fase 6 — K-anonimitat per supressió",
+"per a variables categòriques s'han agrupat valors en categories de major amplitud. "
+"Els valors numèrics fora dels intervals definits s'etiqueten `Fuera de rango` i els no "
+"interpretables com a número, `Desconocido`; el recompte de cada cas consta a la secció 5."),
+"meth_step6_title":"Fase 5 — K-anonimitat per supressió",
 "meth_step6_body":("S'ha aplicat el model de **k-anonimitat** (Sweeney, 2002) sobre les combinacions "
 "de quasi-identificadors generalitzats.\n\n"
-"1. Agrupa els registres per la combinació única de valors dels quasi-identificadors\n"
-"2. Identifica els grups (classes d'equivalència) amb menys de **k** pacients\n"
+"1. Construeix la signatura de cada pacient: per a cada quasi-identificador, el conjunt de "
+"valors distints que pren al llarg de **totes** les seves visites (p. ex. `60-64 | 65+`)\n"
+"2. Agrupa els pacients per signatura i identifica els grups (classes d'equivalència) amb menys de **k** pacients\n"
 "3. Elimina tots els registres dels pacients en grups no conformes\n\n"
-"La supressió s'aplica a nivell de **pacient complet** per preservar la coherència del dataset."),
+"La supressió s'aplica a nivell de **pacient complet** per preservar la coherència del dataset. "
+"Com que la signatura inclou tots els valors publicats, la garantia de k es compleix també "
+"quan un quasi-identificador canvia entre visites."),
 "cls_intro":"L'usuari ha classificat cada ítem del dataset en una de les categories següents:",
 "cls_quasi":"Quasi-identificadors","cls_nonid":"No identificatius (sense canvis)",
 "cls_quasi_desc":("Atributs que, tot sols o combinats amb d'altres, podrien permetre la "
@@ -84,6 +127,9 @@ T = {
 "gen_bins_label":"Punts de tall","gen_labels_label":"Etiquetes resultants",
 "gen_mapping_label":"Mapeig de valors","gen_unmapped":"Valors no assignats",
 "gen_none":"Sense transformació (valor original)",
+"gen_log_non_numeric":"Registres no numèrics → `Desconocido`",
+"gen_log_out_of_range":"Registres fora dels intervals → `Fuera de rango`",
+"gen_log_unmapped":"Registres sense correspondència → etiqueta de no assignats",
 "imp_intro":"S'han imputat els valors absents als quasi-identificadors següents:",
 "imp_none":"No s'ha detectat cap valor absent als quasi-identificadors. No s'ha aplicat imputació.",
 "imp_item":"Ítem","imp_n":"Registres imputats","imp_strat":"Estratègia",
@@ -111,8 +157,8 @@ T = {
 "guar_layer1_title":"Capa 1 — Protecció tècnica (transformacions aplicades)",
 "guar_layer1_body":("Les transformacions aplicades en aquest procés eliminen o ofusquen "
 "tota la informació que permet la identificació directa o indirecta:\n\n"
-"- **Identificador de pacient**: substituït per hash SHA-256 irreversible. "
-"Sense accés a la taula original, la recuperació és computacionalment inviable.\n"
+"- **Identificador de pacient**: substituït per un HMAC-SHA256 amb clau secreta de sessió, "
+"que no es conserva. Ni tan sols amb una llista d'identificadors candidats es pot reconstruir la correspondència.\n"
 "- **Dates absolutes**: destruïdes i substituïdes per deltes relatius. "
 "No és possible inferir quan va tenir lloc cap observació.\n"
 "- **Quasi-identificadors**: generalitzats en categories o rangs. "
@@ -149,7 +195,7 @@ T = {
 "per al tractament de dades de salut amb finalitats d'investigació:\n\n"
 "| Capa | Tipus | Protecció aportada |\n"
 "|------|-------|--------------------|\n"
-"| Tècnica | K-anonimitat + hash + delta de minuts + generalització | Impossibilitat matemàtica de singularització |\n"
+"| Tècnica | K-anonimitat + HMAC amb clau de sessió + delta de minuts + generalització | Impossibilitat matemàtica de singularització |\n"
 "| Estadística | Incertesa de mostreig | Incertesa sobre la presència de cada individu |\n"
 "| Organitzacional | DUA + entorn segur ISCIII + participants acreditats | Control d'accés i responsabilitat legal |\n\n"
 "**El dataset resultant d'aquest procés és apte per al seu ús en el Datathon.**"),
@@ -197,15 +243,25 @@ T["es"] = {
 "summary_method":("La técnica principal aplicada es la **k-anonimidad**, que garantiza que cada "
 "combinación de cuasi-identificadores aparezca en al menos **k** registros, "
 "haciendo matemáticamente imposible la singularización de un individuo. "
-"Complementariamente, se han aplicado hash irreversible a los identificadores directos "
-"y conversión a delta temporal de las fechas."),
+"Complementariamente, se han seudonimizado los identificadores directos con un hash con clave secreta "
+"y se han convertido las fechas a delta temporal."),
 "summary_result":"El resultado del proceso ha sido:",
+"kanon_label":"K-anonimidad","none":"_(ninguno)_","and_more":"y {n} más",
 "ds_patients":"Pacientes únicos","ds_records":"Registros totales","ds_items":"Variables (ítems)",
-"ds_date_range":"Rango de fechas","ds_col_mapping":"Correspondencia de columnas detectada",
-"ds_original_col":"Columna original en el CSV","ds_canonical_col":"Columna canónica interna",
+"ds_date_range":"Rango de fechas","ds_col_mapping":"Correspondencia de columnas (columna original en el CSV → columna canónica interna)",
+"ds_file":"Fichero",
+"ds_dropped":"Filas descartadas (sin paciente o sin variable)",
+"ds_duplicates":"Filas idénticas repetidas (conservadas)",
 "meth_intro":"El proceso de anonimización se ha estructurado en las siguientes fases secuenciales:",
-"meth_step1_title":"Fase 1 — Normalización de columnas",
-"meth_step1_body":"El sistema detectó automáticamente las columnas del CSV y las mapeó a los nombres canónicos internos, aceptando variantes habituales como `patient_id`, `variable`, `value`, etc.",
+"meth_step1_title":"Fase 1 — Normalización y coherencia del dataset",
+"meth_step1_body":("Antes de cualquier transformación se ha asegurado la coherencia del dataset:\n\n"
+"- Las columnas de cada fichero se han mapeado a los nombres canónicos internos (`pacient`, `data`, `item`, `valor`), "
+"por alias habituales (`patient_id`, `variable`, `value`…) o con confirmación explícita del usuario.\n"
+"- Todos los valores se han leído como texto, sin inferencia de tipos: los identificadores se conservan "
+"exactamente (p. ej. `0012` no pasa a `12` ni a `12.0`) y son comparables entre ficheros.\n"
+"- Se han eliminado los espacios en los extremos de los identificadores y descartado las filas sin paciente o sin variable.\n"
+"- Cuando hay más de un fichero, se han combinado en un único dataset antes de transformar nada, de modo que "
+"las fechas, la imputación y la k-anonimidad se calculan sobre toda la información de cada paciente."),
 "meth_step2_title":"Fase 2 — Transformación de fechas",
 "meth_step2_body":("Todas las fechas absolutas han sido sustituidas por un **delta entero de minutos** "
 "calculado como la diferencia respecto a la primera visita de cada paciente. "
@@ -215,21 +271,32 @@ T["es"] = {
 "- Visitas posteriores → minutos transcurridos desde la primera\n"
 "- Si el timestamp original solo contenía fecha (sin hora), el delta será múltiplo de 1440\n"
 "- Las fechas originales no se conservan en ninguna forma"),
-"meth_step3_title":"Fase 3 — Seudonimización del identificador de paciente",
-"meth_step3_body":("El identificador de paciente ha sido sustituido por un **hash SHA-256** truncado "
-"(12 caracteres hex, prefijo `H-`). Transformación **irreversible**: es computacionalmente "
-"inviable recuperar el identificador original sin acceso a la tabla original."),
-"meth_step4_title":"Fase 4 — Generalización de cuasi-identificadores",
-"meth_step4_body":"Los ítems clasificados como cuasi-identificadores han sido generalizados mediante intervalos numéricos o agrupación de categorías, eliminando la granularidad que podría facilitar el cruce con fuentes externas.",
-"meth_step5_title":"Fase 5 — Imputación de valores ausentes",
-"meth_step5_body":("Los valores ausentes de los cuasi-identificadores han sido imputados:\n\n"
+"meth_step3_title":"Fase 6 — Seudonimización del identificador de paciente",
+"meth_step3_body":("El identificador de paciente ha sido sustituido por un **HMAC-SHA256** truncado "
+"(12 caracteres hex, prefijo `H-`). La clave del HMAC es **aleatoria, secreta y exclusiva de esta "
+"sesión**: solo ha existido en la memoria de la herramienta durante el proceso y no se conserva. "
+"Sin la clave no es posible recalcular los hashes a partir de una lista de identificadores "
+"candidatos (ataque de diccionario), y una vez cerrada la sesión la correspondencia "
+"paciente → hash es **irrecuperable**. El mismo paciente recibe el mismo hash en todos los ficheros de esta sesión.\n\n"
+"La seudonimización se aplica **al final del proceso**, una vez el dataset es coherente, está agrupado y es k-anónimo, "
+"y solo sobre los registros que se publican."),
+"meth_step4_title":"Fase 3 — Imputación de valores ausentes",
+"meth_step4_body":("Los valores ausentes de los cuasi-identificadores han sido imputados sobre los valores "
+"originales, antes de generalizar:\n\n"
 "- **Categóricas**: `Desconocido`\n- **Numéricas**: mediana del ítem"),
-"meth_step6_title":"Fase 6 — K-anonimidad por supresión",
+"meth_step5_title":"Fase 4 — Generalización de cuasi-identificadores",
+"meth_step5_body":("Los ítems clasificados como cuasi-identificadores han sido generalizados mediante intervalos "
+"numéricos o agrupación de categorías, eliminando la granularidad que podría facilitar el cruce con fuentes externas. "
+"Los valores numéricos fuera de los intervalos definidos se etiquetan `Fuera de rango` y los no interpretables "
+"como número, `Desconocido`; el recuento de cada caso consta en la sección 5."),
+"meth_step6_title":"Fase 5 — K-anonimidad por supresión",
 "meth_step6_body":("Se ha aplicado el modelo de **k-anonimidad** (Sweeney, 2002):\n\n"
-"1. Agrupa registros por combinación de cuasi-identificadores generalizados\n"
-"2. Identifica grupos con menos de k pacientes\n"
+"1. Construye la firma de cada paciente: para cada cuasi-identificador, el conjunto de valores distintos "
+"que toma a lo largo de **todas** sus visitas (p. ej. `60-64 | 65+`)\n"
+"2. Agrupa los pacientes por firma e identifica los grupos con menos de k pacientes\n"
 "3. Elimina todos los registros de pacientes en grupos no conformes\n\n"
-"La supresión se aplica a nivel de **paciente completo**."),
+"La supresión se aplica a nivel de **paciente completo**. Como la firma incluye todos los valores "
+"publicados, la garantía de k se cumple también cuando un cuasi-identificador cambia entre visitas."),
 "cls_intro":"El usuario ha clasificado cada ítem en una de las categorías siguientes:",
 "cls_quasi":"Cuasi-identificadores","cls_nonid":"No identificativos (sin cambios)",
 "cls_quasi_desc":"Atributos que podrían permitir la reidentificación por cruce con fuentes externas. Han sido generalizados e incluidos en la k-anonimidad.",
@@ -239,6 +306,9 @@ T["es"] = {
 "gen_bins_label":"Puntos de corte","gen_labels_label":"Etiquetas resultantes",
 "gen_mapping_label":"Mapeo de valores","gen_unmapped":"Valores no asignados",
 "gen_none":"Sin transformación (valor original)",
+"gen_log_non_numeric":"Registros no numéricos → `Desconocido`",
+"gen_log_out_of_range":"Registros fuera de los intervalos → `Fuera de rango`",
+"gen_log_unmapped":"Registros sin correspondencia → etiqueta de no asignados",
 "imp_intro":"Se han imputado los valores ausentes en los cuasi-identificadores siguientes:",
 "imp_none":"No se detectaron valores ausentes en los cuasi-identificadores. No se aplicó imputación.",
 "imp_item":"Ítem","imp_n":"Registros imputados","imp_strat":"Estrategia",
@@ -263,7 +333,8 @@ T["es"] = {
 "guar_layer1_title":"Capa 1 — Protección técnica (transformaciones aplicadas)",
 "guar_layer1_body":("Las transformaciones aplicadas eliminan u ofuscan toda la información "
 "que permite la identificación directa o indirecta:\n\n"
-"- **Identificador de paciente**: sustituido por hash SHA-256 irreversible.\n"
+"- **Identificador de paciente**: sustituido por un HMAC-SHA256 con clave secreta de sesión, "
+"que no se conserva. Ni siquiera con una lista de identificadores candidatos se puede reconstruir la correspondencia.\n"
 "- **Fechas absolutas**: destruidas y sustituidas por deltas relativos. "
 "No es posible inferir cuándo tuvo lugar ninguna observación.\n"
 "- **Cuasi-identificadores**: generalizados en categorías o rangos. "
@@ -300,7 +371,7 @@ T["es"] = {
 "para el tratamiento de datos de salud con fines de investigación:\n\n"
 "| Capa | Tipo | Protección aportada |\n"
 "|------|------|---------------------|\n"
-"| Técnica | K-anonimidad + hash + delta de minutos + generalización | Imposibilidad matemática de singularización |\n"
+"| Técnica | K-anonimidad + HMAC con clave de sesión + delta de minutos + generalización | Imposibilidad matemática de singularización |\n"
 "| Estadística | Incertidumbre de muestreo | Incertidumbre sobre la presencia de cada individuo |\n"
 "| Organizacional | DUA + entorno seguro ISCIII + participantes acreditados | Control de acceso y responsabilidad legal |\n\n"
 "**El dataset resultante de este proceso es apto para su uso en el Datathon.**"),
@@ -344,14 +415,24 @@ T["en"] = {
 "summary_method":("The main technique applied is **k-anonymity**, which mathematically guarantees "
 "that each quasi-identifier combination appears in at least **k** records, "
 "making it impossible to single out any individual. Complementary protections "
-"include irreversible hashing of direct identifiers and temporal delta conversion of dates."),
+"include keyed-hash pseudonymization of direct identifiers and temporal delta conversion of dates."),
 "summary_result":"The outcome of the process was:",
+"kanon_label":"K-anonymity","none":"_(none)_","and_more":"and {n} more",
 "ds_patients":"Unique patients","ds_records":"Total records","ds_items":"Variables (items)",
-"ds_date_range":"Date range","ds_col_mapping":"Detected column mapping",
-"ds_original_col":"Original column in CSV","ds_canonical_col":"Internal canonical column",
+"ds_date_range":"Date range","ds_col_mapping":"Column mapping (original CSV column → internal canonical column)",
+"ds_file":"File",
+"ds_dropped":"Discarded rows (no patient or no variable)",
+"ds_duplicates":"Repeated identical rows (kept)",
 "meth_intro":"The anonymization process was structured in the following sequential phases:",
-"meth_step1_title":"Phase 1 — Column Normalization",
-"meth_step1_body":"The system automatically detected CSV columns and mapped them to internal canonical names, accepting common variants such as `patient_id`, `variable`, `value`, etc.",
+"meth_step1_title":"Phase 1 — Dataset Normalization and Coherence",
+"meth_step1_body":("Before any transformation, the coherence of the dataset was ensured:\n\n"
+"- Each file's columns were mapped to the internal canonical names (`pacient`, `data`, `item`, `valor`), "
+"via common aliases (`patient_id`, `variable`, `value`…) or explicit user confirmation.\n"
+"- All values were read as text, without type inference: identifiers are kept exactly "
+"(e.g. `0012` does not become `12` or `12.0`) and are comparable across files.\n"
+"- Leading/trailing spaces were removed from identifiers, and rows without a patient or a variable were discarded.\n"
+"- When there is more than one file, they were combined into a single dataset before any transformation, so "
+"dates, imputation and k-anonymity are computed on all the information of each patient."),
 "meth_step2_title":"Phase 2 — Date Transformation",
 "meth_step2_body":("All absolute dates were replaced by an **integer minute delta** computed "
 "as the difference from each patient's first visit. This preserves clinically relevant "
@@ -361,21 +442,33 @@ T["en"] = {
 "- Subsequent visits → minutes elapsed since the first visit\n"
 "- If the original timestamp had no time component, the delta will be a multiple of 1440\n"
 "- Original dates are not retained in any form"),
-"meth_step3_title":"Phase 3 — Patient Identifier Pseudonymization",
-"meth_step3_body":("The patient identifier was replaced by a **SHA-256 hash** "
-"(12 hex chars, prefix `H-`). This transformation is **irreversible**: "
-"recovering the original identifier without the source table is computationally infeasible."),
-"meth_step4_title":"Phase 4 — Quasi-identifier Generalization",
-"meth_step4_body":"Quasi-identifier items were generalized via numeric binning or categorical grouping, removing the granularity that could enable linkage attacks with external data sources.",
-"meth_step5_title":"Phase 5 — Missing Value Imputation",
-"meth_step5_body":("Missing values in quasi-identifiers were imputed to prevent unit equivalence classes:\n\n"
+"meth_step3_title":"Phase 6 — Patient Identifier Pseudonymization",
+"meth_step3_body":("The patient identifier was replaced by an **HMAC-SHA256** "
+"(12 hex chars, prefix `H-`). The HMAC key is **random, secret and unique to this session**: "
+"it only existed in the tool's memory during processing and is not retained anywhere. "
+"Without the key the hashes cannot be recomputed from a list of candidate identifiers "
+"(dictionary attack), and once the session is closed the patient → hash correspondence is "
+"**unrecoverable**. The same patient receives the same hash in every file of this session.\n\n"
+"Pseudonymization is applied **at the end of the process**, once the dataset is coherent, generalized and "
+"k-anonymous, and only to the records that are released."),
+"meth_step4_title":"Phase 3 — Missing Value Imputation",
+"meth_step4_body":("Missing values in quasi-identifiers were imputed on the original values, before "
+"generalization, to prevent unit equivalence classes:\n\n"
 "- **Categorical**: `Desconocido`\n- **Numeric**: item median"),
-"meth_step6_title":"Phase 6 — K-anonymity by Suppression",
+"meth_step5_title":"Phase 4 — Quasi-identifier Generalization",
+"meth_step5_body":("Quasi-identifier items were generalized via numeric binning or categorical grouping, "
+"removing the granularity that could enable linkage attacks with external data sources. "
+"Numeric values outside the defined intervals are labelled `Fuera de rango` and values that "
+"cannot be read as numbers `Desconocido`; the count of each case is listed in section 5."),
+"meth_step6_title":"Phase 5 — K-anonymity by Suppression",
 "meth_step6_body":("The **k-anonymity** model (Sweeney, 2002) was applied:\n\n"
-"1. Group records by generalized quasi-identifier combination\n"
-"2. Identify equivalence classes with fewer than k patients\n"
+"1. Build each patient's signature: for every quasi-identifier, the set of distinct values it "
+"takes across **all** of the patient's visits (e.g. `60-64 | 65+`)\n"
+"2. Group patients by signature and identify equivalence classes with fewer than k patients\n"
 "3. Remove all records of patients in non-conforming groups\n\n"
-"Suppression is applied at the **full patient level** to preserve dataset coherence."),
+"Suppression is applied at the **full patient level** to preserve dataset coherence. Because the "
+"signature covers every released value, the k guarantee also holds when a quasi-identifier "
+"changes between visits."),
 "cls_intro":"The user classified each item into one of the following categories:",
 "cls_quasi":"Quasi-identifiers","cls_nonid":"Non-identifying (unchanged)",
 "cls_quasi_desc":"Attributes that could enable re-identification through linkage with external sources. Generalized and included in k-anonymity.",
@@ -385,6 +478,9 @@ T["en"] = {
 "gen_bins_label":"Cut points","gen_labels_label":"Resulting labels",
 "gen_mapping_label":"Value mapping","gen_unmapped":"Unassigned values",
 "gen_none":"No transformation (original value)",
+"gen_log_non_numeric":"Non-numeric records → `Desconocido`",
+"gen_log_out_of_range":"Records outside the intervals → `Fuera de rango`",
+"gen_log_unmapped":"Records without a mapping → unassigned label",
 "imp_intro":"Missing values were imputed for the following quasi-identifiers:",
 "imp_none":"No missing values detected in quasi-identifiers. No imputation applied.",
 "imp_item":"Item","imp_n":"Imputed records","imp_strat":"Strategy",
@@ -410,8 +506,8 @@ T["en"] = {
 "guar_layer1_title":"Layer 1 — Technical Protection (applied transformations)",
 "guar_layer1_body":("The applied transformations eliminate or obfuscate all information "
 "enabling direct or indirect identification:\n\n"
-"- **Patient identifier**: replaced by irreversible SHA-256 hash. "
-"Recovery without the source table is computationally infeasible.\n"
+"- **Patient identifier**: replaced by an HMAC-SHA256 with a secret session key that is not retained. "
+"Not even a list of candidate identifiers allows the correspondence to be rebuilt.\n"
 "- **Absolute dates**: destroyed and replaced by relative deltas. "
 "It is impossible to infer when any observation took place.\n"
 "- **Quasi-identifiers**: generalized into categories or ranges, "
@@ -448,7 +544,7 @@ T["en"] = {
 "processing for research purposes:\n\n"
 "| Layer | Type | Protection provided |\n"
 "|-------|------|---------------------|\n"
-"| Technical | K-anonymity + hash + minute delta + generalization | Mathematical impossibility of singling out |\n"
+"| Technical | K-anonymity + session-keyed HMAC + minute delta + generalization | Mathematical impossibility of singling out |\n"
 "| Statistical | Sampling uncertainty | Uncertainty about each individual's presence |\n"
 "| Organizational | DUA + secure ISCIII environment + accredited participants | Access control and legal accountability |\n\n"
 "**The dataset resulting from this process is suitable for use in the Datathon.**"),
@@ -473,12 +569,15 @@ T["en"] = {
 }
 
 
-def generate_markdown_report(lang, filename, col_mapping, classifications,
+def generate_markdown_report(lang, filename, col_mappings, classifications,
                               generalizations, imputation_log, metrics,
-                              date_range, all_items, orig_pacient_col="patient_id"):
-    t   = T.get(lang, T["ca"])
+                              date_range, all_items, generalization_log=None,
+                              version="?", coherence=None):
+    t   = T.get(lang, T["es"])
     now = datetime.datetime.now().strftime("%d/%m/%Y %H:%M")
     k   = metrics.get("k_used", "?")
+    generalization_log = generalization_log or {}
+    qi_list = lambda items: ", ".join(_code(i) for i in items) if items else t["none"]
 
     quasi_items  = metrics.get("quasi_id_items", [])
     non_id_items = [i for i in all_items if classifications.get(i) != "quasi_id"]
@@ -502,8 +601,8 @@ def generate_markdown_report(lang, filename, col_mapping, classifications,
     ln(); ln("---"); ln()
     ln(f"| | |"); ln("|---|---|")
     ln(f"| **{t['generated']}** | {now} |")
-    ln(f"| **{t['tool']}** | Datathon Anonymizer v2.0 |")
-    ln(f"| **{t['filename']}** | `{filename}` |")
+    ln(f"| **{t['tool']}** | Datathon Anonymizer v{version} |")
+    ln(f"| **{t['filename']}** | {_code(filename)} |")
     ln(f"| **{t['lang']}** | {t['lang_val']} |")
     ln(); ln("---"); ln()
 
@@ -515,18 +614,18 @@ def generate_markdown_report(lang, filename, col_mapping, classifications,
     ln(f"| | |"); ln("|---|---:|")
     ln(f"| {t['ds_patients']} | **{n_po:,}** → **{n_pf:,}** |")
     ln(f"| {t['ds_records']}  | **{n_ro:,}** → **{n_rf:,}** |")
-    ln(f"| K-anonimitat | **k = {k}** |")
-    ln(f"| {t['kan_quasi_items']} | {', '.join(f'`{i}`' for i in quasi_items) if quasi_items else '_(cap)_'} |")
+    ln(f"| {t['kanon_label']} | **k = {k}** |")
+    ln(f"| {t['kan_quasi_items']} | {qi_list(quasi_items)} |")
     ln()
 
-    # 2. DATASET
+    # 2. DATASET — un mapatge per fitxer (cada CCAA/fitxer pot tenir noms propis)
+    canonicals = ["pacient", "data", "item", "valor"]
     ln(f"## {t['s_dataset']}"); ln()
-    col_inv = {v: k_ for k_, v in col_mapping.items()}
-    ln(f"| {t['ds_original_col']} | {t['ds_canonical_col']} |")
-    ln("|---|---|")
-    for can in ["pacient", "data", "item", "valor"]:
-        orig = col_inv.get(can, can)
-        ln(f"| `{orig}` | `{can}` |")
+    ln(f"**{t['ds_col_mapping']}**"); ln()
+    ln(f"| {t['ds_file']} | " + " | ".join(f"`{c}`" for c in canonicals) + " |")
+    ln("|---|" + "---|" * len(canonicals))
+    for fname, mapping in (col_mappings or {}).items():
+        ln(f"| {_code(fname)} | " + " | ".join(_code(mapping.get(c, c)) for c in canonicals) + " |")
     ln()
     ln(f"| | |"); ln("|---|---:|")
     ln(f"| {t['ds_patients']} | {n_po:,} |")
@@ -537,12 +636,16 @@ def generate_markdown_report(lang, filename, col_mapping, classifications,
     ln(f"| {t['res_visits_min']} | {v_orig.get('min','?')} |")
     ln(f"| {t['res_visits_max']} | {v_orig.get('max','?')} |")
     ln(f"| {t['res_visits_mean']} | {v_orig.get('mean','?')} |")
+    coherence = coherence or {}
+    ln(f"| {t['ds_dropped']} | {coherence.get('n_dropped_rows', 0):,} |")
+    ln(f"| {t['ds_duplicates']} | {coherence.get('n_duplicate_rows', 0):,} |")
     ln()
 
-    # 3. METODOLOGIA
+    # 3. METODOLOGIA — en l'ordre real del pipeline: coherència, dates,
+    # imputació, generalització, k-anonimitat i, al final, pseudonimització
     ln(f"## {t['s_methodology']}"); ln()
     ln(t["meth_intro"]); ln()
-    for step in ["1","2","3","4","5","6"]:
+    for step in ["1","2","4","5","6","3"]:
         ln(f"### {t[f'meth_step{step}_title']}"); ln()
         ln(t[f"meth_step{step}_body"]); ln()
 
@@ -553,15 +656,15 @@ def generate_markdown_report(lang, filename, col_mapping, classifications,
         ln(f"**{t['cls_quasi']}** — {t['cls_quasi_desc']}")
         ln()
         for item in quasi_items:
-            ln(f"- `{item}`")
+            ln(f"- {_code(item)}")
         ln()
     if non_id_items:
         ln(f"**{t['cls_nonid']}** — {t['cls_nonid_desc']}")
         ln()
         for item in non_id_items[:20]:
-            ln(f"- `{item}`")
+            ln(f"- {_code(item)}")
         if len(non_id_items) > 20:
-            ln(f"- _(i {len(non_id_items)-20} més)_")
+            ln(f"- _({t['and_more'].format(n=len(non_id_items) - 20)})_")
         ln()
 
     # 5. GENERALITZACIONS
@@ -573,24 +676,30 @@ def generate_markdown_report(lang, filename, col_mapping, classifications,
         for item in quasi_items:
             cfg = generalizations.get(item, {})
             tp  = cfg.get("type", "")
-            ln(f"### `{item}`"); ln()
+            glog = generalization_log.get(item, {})
+            ln(f"### {_code(item)}"); ln()
             if tp == "bins":
                 bins   = cfg.get("bins", [])
                 labels = cfg.get("labels", [])
                 ln(f"**{t['gen_type_bins']}**"); ln()
                 ln(f"| {t['gen_bins_label']} | {t['gen_labels_label']} |"); ln("|---|---|")
                 for i, lbl in enumerate(labels):
-                    lo = bins[i] if i < len(bins) else "?"
-                    hi = bins[i+1] if i+1 < len(bins) else "?"
-                    ln(f"| [{lo}, {hi}) | `{lbl}` |")
+                    lo = _txt(bins[i]) if i < len(bins) else "?"
+                    hi = _txt(bins[i+1]) if i+1 < len(bins) else "?"
+                    ln(f"| \\[{lo}, {hi}) | {_code(lbl)} |")
+                ln()
+                ln(f"- {t['gen_log_non_numeric']}: **{glog.get('n_non_numeric', 0):,}**")
+                ln(f"- {t['gen_log_out_of_range']}: **{glog.get('n_out_of_range', 0):,}**")
             elif tp == "mapping":
                 mapping  = cfg.get("mapping", {})
-                unmapped = cfg.get("unmapped_label", "Desconocido")
+                unmapped = cfg.get("unmapped_label", "Altres")
                 ln(f"**{t['gen_type_mapping']}**"); ln()
                 ln(f"| {t['gen_mapping_label']} | → |"); ln("|---|---|")
                 for orig_v, mapped_v in sorted(mapping.items()):
-                    ln(f"| `{orig_v}` | `{mapped_v}` |")
-                ln(f"| _({t['gen_unmapped']})_ | `{unmapped}` |")
+                    ln(f"| {_code(orig_v)} | {_code(mapped_v)} |")
+                ln(f"| _({t['gen_unmapped']})_ | {_code(unmapped)} |")
+                ln()
+                ln(f"- {t['gen_log_unmapped']} ({_code(unmapped)}): **{glog.get('n_unmapped', 0):,}**")
             else:
                 ln(f"_{t['gen_none']}_")
             ln()
@@ -604,14 +713,13 @@ def generate_markdown_report(lang, filename, col_mapping, classifications,
         ln(f"| {t['imp_item']} | {t['imp_n']} | {t['imp_strat']} |")
         ln("|---|---:|---|")
         for item_name, info in imputation_log.items():
-            ln(f"| `{item_name}` | {info['n_imputed']:,} | {info['strategy']} |")
+            ln(f"| {_code(item_name)} | {info['n_imputed']:,} | {_txt(info['strategy'])} |")
     ln()
 
     # 7. K-ANONIMITAT
     ln(f"## {t['s_kanon']}"); ln()
     ln(f"- **{t['kan_k_used']}:** {k}")
-    qi_str = ', '.join(f'`{i}`' for i in quasi_items) if quasi_items else '_(cap)_'
-    ln(f"- **{t['kan_quasi_items']}:** {qi_str}")
+    ln(f"- **{t['kan_quasi_items']}:** {qi_list(quasi_items)}")
     ln()
     note = t["kan_note"].replace("{k}", str(k))
     ln(f"> {note}"); ln()
@@ -649,10 +757,10 @@ def generate_markdown_report(lang, filename, col_mapping, classifications,
         ln(f"✅ {t['eq_none_suppressed']}")
     else:
         headers = list(sg[0].keys())
-        ln("| " + " | ".join(str(h) for h in headers) + " |")
+        ln("| " + " | ".join(t["eq_size"] if h == "_count_" else _txt(h) for h in headers) + " |")
         ln("|" + "|".join("---" for _ in headers) + "|")
         for row in sg[:20]:
-            ln("| " + " | ".join(str(v) for v in row.values()) + " |")
+            ln("| " + " | ".join(_txt(v) for v in row.values()) + " |")
     ln()
 
     # 10. GARANTIES

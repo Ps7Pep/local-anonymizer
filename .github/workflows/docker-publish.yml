@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - main
+    tags:
+      - "v*"           # release: v4.0.0 → imatges 4.0.0 i 4.0
+  pull_request:
   workflow_dispatch:   # permet llançar-ho manualment des de GitHub
 
 env:
@@ -11,7 +14,28 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      # Els tests corren dins de la mateixa imatge que es publica (com en local):
+      # no s'hi couen, es munten.
+      - name: Build image
+        run: docker build -t anonymizer:test .
+
+      - name: Run tests inside the image
+        run: >
+          docker run --rm -v "$PWD/tests:/app/tests:ro" anonymizer:test
+          sh -c "pip install -q --user pytest httpx2 && python -m pytest -q -p no:cacheprovider tests"
+
   build-and-push:
+    needs: test
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -19,10 +43,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -30,15 +54,17 @@ jobs:
 
       - name: Extract metadata (tags and labels)
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=raw,value=latest
-            type=sha,prefix=v-
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix=sha-
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           push: true

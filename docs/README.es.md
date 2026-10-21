@@ -5,7 +5,7 @@
 **[🇬🇧 English](../README.md) · [🇨🇦 Català](README.ca.md)**
 
 [![Python](https://img.shields.io/badge/Python-3.12-blue?logo=python)](https://python.org)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688?logo=fastapi)](https://fastapi.tiangolo.com)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.156-009688?logo=fastapi)](https://fastapi.tiangolo.com)
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker)](https://docker.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green)](../LICENSE)
 
@@ -45,7 +45,9 @@ Para detener:
 docker compose down
 ```
 
-> **Puerto personalizado**: modifica el puerto izquierdo en `docker-compose.yml` (ej: `"8092:8000"`)
+> **Puerto y acceso por red**: por defecto la app solo escucha en la propia máquina (`"127.0.0.1:8092:8000"` en `docker-compose.yml`). Para cambiar el puerto, modifica `8092`. Si la herramienta corre en un servidor y se accede desde otro equipo, cambia el mapeo a `"8092:8000"` — deliberadamente y solo en una red interna de confianza: la app no tiene autenticación. Con `docker run`, usa `-p 127.0.0.1:8092:8000`.
+>
+> **Duración de la sesión**: los datos solo viven en memoria y se descartan tras 120 minutos de inactividad (`SESSION_TTL_MINUTES` en `docker-compose.yml`), o al momento con «Nueva sesión».
 
 ---
 
@@ -123,7 +125,7 @@ Para cada variable, el usuario indica su rol:
 
 | Rol | Tratamiento automático |
 |-----|----------------------|
-| 🔑 Identificador directo (`pacient`) | Hash SHA-256 irreversible (prefijo `H-`) |
+| 🔑 Identificador directo (`pacient`) | HMAC-SHA256 con clave aleatoria de sesión que nunca se guarda (prefijo `H-`) |
 | 📅 Fecha (`data`) | Delta entero en **minutos** desde la primera visita del paciente (preserva diferencias intra-día) |
 | 🔍 Cuasi-identificador | Generalización definida por el usuario + k-anonimidad |
 | ✅ No identificativo | Sin cambios |
@@ -135,14 +137,17 @@ Para cada cuasi-identificador, el usuario define cómo agrupar los valores:
 - **Variables numéricas** → intervalos personalizados (ej: edad → `0-17`, `18-39`, `40-64`, `65+`)
 - **Variables categóricas** → mapeo de valores originales a categorías más amplias
 
-Los valores ausentes (NaN) se imputan automáticamente:
+Los valores ausentes (NaN) se imputan automáticamente sobre los valores originales, antes de generalizar:
 - Categóricos → `Desconocido`
 - Numéricos → mediana del conjunto observado
+
+Nada queda fuera de una generalización en silencio: los valores numéricos fuera de los puntos de corte pasan a `Fuera de rango`, los no numéricos en un ítem con intervalos a `Desconocido`, y los recuentos (y los valores sin categoría asignada) se muestran en los resultados y en el informe.
 
 ### Fase 4 — K-anonimidad y resultados
 
 - **Simulación previa**: muestra el impacto de k=2, 3, 4, 5 antes de ejecutar
 - **Parámetro k**: cada combinación de cuasi-identificadores debe tener ≥ k pacientes
+- **Firma longitudinal**: la combinación de un paciente es el conjunto de todos los valores que toma cada cuasi-identificador a lo largo de sus visitas (p. ej. franja de edad `60-64 | 65+`), de modo que k se cumple también cuando un cuasi-identificador cambia entre visitas
 - **Supresión**: los pacientes en grupos por debajo de k se eliminan del dataset final
 - **Métricas**: flujo de pacientes, distribución de clases de equivalencia, grupos suprimidos
 
@@ -156,7 +161,7 @@ La protección que ofrece este proceso se sustenta en **tres capas independiente
 
 | Transformación | Protección |
 |---------------|------------|
-| Hash SHA-256 del identificador | Seudonimización irreversible |
+| HMAC-SHA256 del identificador (clave secreta de sesión, descartada) | Seudonimización no reversible por ataque de diccionario |
 | Timestamp → delta entero en minutos (por paciente) | Fechas absolutas destruidas; patrones intra-día preservados |
 | Generalización de cuasi-IDs | Granularidad de cruce eliminada |
 | K-anonimidad | Imposibilidad matemática de singularización |
@@ -230,8 +235,8 @@ local-anonymizer/
 │   ├── dataset_2000p.csv          # Dataset sintético — 2.000 pacientes (un fichero)
 │   └── 1_… 4_….csv               # Los mismos 2.000 pacientes en 4 ficheros temáticos
 │
-├── generate_synthetic.py          # Script para regenerar el dataset de un fichero
-├── generate_multifile_sample.py   # Script para regenerar los 4 ficheros temáticos
+├── generate_synthetic.py          # Genera el dataset sintético (perfil fijo por paciente)
+├── generate_multifile_sample.py   # Lo reparte en los 4 ficheros temáticos (partición exacta)
 ├── Dockerfile
 ├── docker-compose.yml
 ├── requirements.txt

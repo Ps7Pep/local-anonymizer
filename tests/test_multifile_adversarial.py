@@ -14,6 +14,8 @@ the cases most likely to break:
 
 Run:  python -m pytest tests/test_multifile_adversarial.py -v
 """
+import hashlib
+import hmac
 import io
 import sys
 import zipfile
@@ -68,8 +70,12 @@ def _anonymize_to_outputs(csvs, classifications_quasi, k=K, confirm=None):
         frames = _zip_to_frames(r.content)
     else:
         frames = {"_single_": pd.read_csv(io.BytesIO(r.content))}
-    sessions.pop(sid, None)
-    return frames, anon
+    key = sessions.pop(sid)["hash_key"]
+    return frames, anon, key
+
+
+def _h(key: bytes, pid: str) -> str:
+    return "H-" + hmac.new(key, pid.encode(), hashlib.sha256).hexdigest()[:12]
 
 
 # ── A. Same item in two files, same patients ─────────────────────────────────
@@ -97,7 +103,7 @@ def test_same_item_in_two_files_rows_return_to_origin():
         "PB,2024-03-05,tension,baja\n"
         "PC,2024-03-05,tension,alta\n"
     )
-    frames, anon = _anonymize_to_outputs(
+    frames, anon, _ = _anonymize_to_outputs(
         {"A.csv": fileA, "B.csv": fileB}, classifications_quasi={"edad", "sexo"}, k=2,
     )
     a = frames["A_anonymized.csv"]
@@ -198,13 +204,12 @@ def test_suppressed_patient_removed_from_every_file():
         "PB,2024-03-01,peso,71\n"
         "PX,2024-03-01,peso,72\n"          # PX rows here too
     )
-    frames, anon = _anonymize_to_outputs(
+    frames, anon, key = _anonymize_to_outputs(
         {"A.csv": fileA, "B.csv": fileB}, classifications_quasi={"sexo"}, k=2,
     )
     a = frames["A_anonymized.csv"]
     b = frames["B_anonymized.csv"]
-    import hashlib
-    hx = "H-" + hashlib.sha256(b"PX").hexdigest()[:12]
+    hx = _h(key, "PX")
 
     assert anon["n_suppressed_patients"] == 1, anon
     assert hx not in set(a["pacient"].astype(str)), "suppressed PX present in file A"
@@ -236,13 +241,12 @@ def test_interleaved_value_integrity_across_files():
         "P2,2024-05-01,score,22\n"
         "P3,2024-05-01,score,33\n"
     )
-    frames, anon = _anonymize_to_outputs(
+    frames, anon, key = _anonymize_to_outputs(
         {"A.csv": fileA, "B.csv": fileB}, classifications_quasi={"grupo"}, k=2,
     )
     a = frames["A_anonymized.csv"]
     b = frames["B_anonymized.csv"]
-    import hashlib
-    def h(p): return "H-" + hashlib.sha256(p.encode()).hexdigest()[:12]
+    def h(p): return _h(key, p)
 
     # Build hash -> tag (file A) and hash -> score (file B) and confirm pairing.
     tagmap = dict(zip(a[a["item"] == "tag"]["pacient"].astype(str),

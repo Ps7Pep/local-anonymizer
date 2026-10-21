@@ -5,8 +5,9 @@ End-to-end correctness tests on the 4 partitioned sample CSVs
 
 What this test suite verifies:
 
-  - SHA-256 hashing replaces every `pacient` value with `H-<12 hex chars>`
-    and is irreversible (no original ID survives anywhere in the output).
+  - HMAC-SHA256 (per-session secret key) replaces every `pacient` value with
+    `H-<12 hex chars>`; no original ID survives, and without the key the
+    hashes cannot be recomputed from candidate IDs (no dictionary attack).
   - Hashing only touches `pacient`; `data`, `item`, `valor` are untouched.
   - The same original patient ID maps to the same hash across files
     (essential for joining the thematic CSVs after anonymization).
@@ -21,6 +22,7 @@ Run from project root:
     python -m pytest tests/
 """
 import hashlib
+import hmac
 import re
 import sys
 from pathlib import Path
@@ -36,9 +38,12 @@ from app.modules.anonymizer import (
     compute_date_deltas,
     hash_patient_ids,
     impute_missing_values,
+    new_hash_key,
     normalize_columns,
     validate_dataframe,
 )
+
+KEY = b"k" * 32
 
 
 SAMPLE_DIR = Path(__file__).resolve().parents[1] / "sample_data"
@@ -76,7 +81,7 @@ def test_hash_replaces_every_patient_id_with_correct_pattern():
     original_ids = set(df["pacient"].dropna().astype(str).unique())
     assert original_ids, "fixture has no patient ids"
 
-    out = hash_patient_ids(df.drop(columns=[_SOURCE_COL]))
+    out = hash_patient_ids(df.drop(columns=[_SOURCE_COL]), KEY)
     hashed = out["pacient"].dropna().astype(str)
 
     # Every hashed value matches the H-<12 hex> contract.
@@ -92,7 +97,7 @@ def test_hash_is_deterministic_and_collision_free_on_sample():
     df = _load_partitioned()
     n_unique_orig = df["pacient"].nunique()
 
-    out = hash_patient_ids(df.drop(columns=[_SOURCE_COL]))
+    out = hash_patient_ids(df.drop(columns=[_SOURCE_COL]), KEY)
     n_unique_hashed = out["pacient"].nunique()
 
     # Same number of distinct patients before/after → no accidental collapse.
@@ -100,25 +105,38 @@ def test_hash_is_deterministic_and_collision_free_on_sample():
         f"hash collision: {n_unique_orig} unique IDs collapsed into {n_unique_hashed}"
     )
 
-    # Determinism: same input → same hash on a second run.
-    out2 = hash_patient_ids(df.drop(columns=[_SOURCE_COL]))
+    # Determinism: same input + same key → same hash on a second run.
+    out2 = hash_patient_ids(df.drop(columns=[_SOURCE_COL]), KEY)
     assert (out["pacient"].values == out2["pacient"].values).all()
 
 
-def test_hash_matches_sha256_truncated_12_with_h_prefix():
+def test_hash_matches_hmac_sha256_truncated_12_with_h_prefix():
     """The hash recipe is part of the audit contract — pin it explicitly."""
     df = _load_partitioned().head(50).copy()
     expected = df["pacient"].apply(
-        lambda v: "H-" + hashlib.sha256(str(v).encode()).hexdigest()[:12]
+        lambda v: "H-" + hmac.new(KEY, str(v).encode(), hashlib.sha256).hexdigest()[:12]
         if pd.notna(v) else v
     )
-    out = hash_patient_ids(df.drop(columns=[_SOURCE_COL]))
+    out = hash_patient_ids(df.drop(columns=[_SOURCE_COL]), KEY)
     assert (out["pacient"].values == expected.values).all()
+
+
+def test_hash_is_not_reversible_by_dictionary_without_the_key():
+    """B1: a plain SHA-256 of a known ID list must not reproduce the output,
+    and two sessions (two random keys) must not produce linkable hashes."""
+    df = _load_partitioned().head(200).drop(columns=[_SOURCE_COL])
+    candidates = set(df["pacient"].astype(str))
+    dictionary = {"H-" + hashlib.sha256(c.encode()).hexdigest()[:12] for c in candidates}
+
+    out_a = hash_patient_ids(df, new_hash_key())
+    out_b = hash_patient_ids(df, new_hash_key())
+    assert dictionary.isdisjoint(set(out_a["pacient"]))
+    assert set(out_a["pacient"]).isdisjoint(set(out_b["pacient"]))
 
 
 def test_hash_touches_only_pacient_column():
     df = _load_partitioned().drop(columns=[_SOURCE_COL])
-    out = hash_patient_ids(df)
+    out = hash_patient_ids(df, KEY)
 
     # Every non-pacient column is byte-identical (same dtype + same values, NaN-aware).
     for col in ("data", "item", "valor"):
@@ -130,7 +148,7 @@ def test_same_patient_hashes_identically_across_partitioned_files():
     thematic CSVs must collapse to the same hash, otherwise joins downstream
     would silently treat them as different people."""
     df = _load_partitioned()
-    out = hash_patient_ids(df.copy())
+    out = hash_patient_ids(df.copy(), KEY)
 
     # Pick a patient that appears in at least 2 files in the fixture.
     counts_per_file = df.groupby("pacient")[_SOURCE_COL].nunique()
@@ -263,7 +281,7 @@ def test_k_anonymity_full_pipeline_on_partitioned_sample():
 
     df = compute_date_deltas(df, date_format="iso")
     df, _ = impute_missing_values(df, quasi)
-    df = hash_patient_ids(df)
+    df = hash_patient_ids(df, KEY)
     res = apply_k_anonymity(df, quasi_id_items=quasi, k=2)
 
     out = res["df_anonymized"]

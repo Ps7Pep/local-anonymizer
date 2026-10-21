@@ -5,7 +5,7 @@
 **[🇪🇸 Castellano](docs/README.es.md) · [🇨🇦 Català](docs/README.ca.md)**
 
 [![Python](https://img.shields.io/badge/Python-3.12-blue?logo=python)](https://python.org)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688?logo=fastapi)](https://fastapi.tiangolo.com)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.156-009688?logo=fastapi)](https://fastapi.tiangolo.com)
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker)](https://docker.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 
@@ -68,7 +68,9 @@ To stop:
 docker compose down
 ```
 
-> **Custom port**: edit the left-hand port in `docker-compose.yml` (e.g. `"8092:8000"`)
+> **Port and network access**: by default the app only listens on the local machine (`"127.0.0.1:8092:8000"` in `docker-compose.yml`). To change the port, edit `8092`. If the tool runs on a server and must be reached from another workstation, change the mapping to `"8092:8000"` — deliberately, and only on a trusted internal network: the app has no authentication. With `docker run`, use `-p 127.0.0.1:8092:8000`.
+>
+> **Session lifetime**: data lives only in memory and is discarded after 120 minutes of inactivity (`SESSION_TTL_MINUTES` in `docker-compose.yml`), or immediately with "New session".
 
 ---
 
@@ -155,7 +157,7 @@ For each variable, the user indicates its role:
 
 | Role | Automatic treatment |
 |------|---------------------|
-| 🔑 Direct identifier (`pacient`) | Irreversible SHA-256 hash (prefix `H-`) |
+| 🔑 Direct identifier (`pacient`) | HMAC-SHA256 with a random per-session key that is never stored (prefix `H-`) |
 | 📅 Date (`data`) | Integer delta in **minutes** since each patient's first visit (preserves intra-day differences) |
 | 🔍 Quasi-identifier | User-defined generalization + k-anonymity |
 | ✅ Non-identifying | No changes |
@@ -167,14 +169,17 @@ For each quasi-identifier, the user defines how to group values:
 - **Numeric variables** → custom intervals (e.g. age → `0-17`, `18-39`, `40-64`, `65+`)
 - **Categorical variables** → mapping of original values to broader groups
 
-Missing values (NaN) are automatically imputed:
+Missing values (NaN) are automatically imputed on the original values, before generalization:
 - Categorical → `Desconocido`
 - Numeric → median of the observed set
+
+Nothing falls out of a generalization silently: numeric values outside the cut points become `Fuera de rango`, non-numeric values in a binned item become `Desconocido`, and the counts (plus values without a category mapping) are shown in the results and in the report.
 
 ### Phase 4 — K-anonymity and results
 
 - **Preview simulation**: shows the impact of k=2, 3, 4, 5 before running
 - **Parameter k**: every quasi-identifier combination must appear in ≥ k patients
+- **Longitudinal signature**: a patient's combination is the set of all values each quasi-identifier takes across their visits (e.g. age band `60-64 | 65+`), so k also holds when a quasi-identifier changes between visits
 - **Suppression**: patients in groups below k are removed from the final dataset
 - **Metrics**: patient flow, equivalence class distribution, suppressed groups
 
@@ -188,7 +193,7 @@ The protection offered by this process rests on **three independent and compleme
 
 | Transformation | Protection |
 |---------------|------------|
-| SHA-256 hash on patient ID | Irreversible pseudonymisation |
+| HMAC-SHA256 on patient ID (per-session secret key, discarded) | Pseudonymisation that cannot be reversed by dictionary attack |
 | Timestamp → integer minute delta (per patient) | Absolute dates destroyed; intra-day patterns preserved |
 | Quasi-identifier generalization | Cross-linkage granularity eliminated |
 | K-anonymity | Mathematical impossibility of singling out |
@@ -245,7 +250,8 @@ local-anonymizer/
 │
 ├── static/
 │   ├── index.html                 # 4-phase wizard interface
-│   ├── css/styles.css             # Styles (clinical dark mode)
+│   ├── css/styles.css             # Styles (light institutional theme)
+│   ├── fonts/                     # IBM Plex Sans/Mono, bundled (OFL) — no external requests
 │   └── js/
 │       ├── app.js                 # Frontend logic (vanilla JS)
 │       └── i18n.js                # Translations: Catalan, Spanish, English
@@ -258,8 +264,8 @@ local-anonymizer/
 │   ├── dataset_2000p.csv          # Synthetic dataset — 2,000 patients (single file)
 │   └── 1_… 4_….csv               # Same 2,000 patients split across 4 thematic files
 │
-├── generate_synthetic.py          # Script to regenerate the single-file dataset
-├── generate_multifile_sample.py   # Script to regenerate the 4 thematic files
+├── generate_synthetic.py          # Generates the single-file synthetic dataset
+├── generate_multifile_sample.py   # Splits it into the 4 thematic files (exact partition)
 ├── Dockerfile
 ├── docker-compose.yml
 ├── requirements.txt
@@ -291,12 +297,28 @@ The interface is available in **Catalan**, **Spanish** and **English**. Language
 
 ## Synthetic dataset generation
 
-`generate_synthetic.py` produces the single-file dataset of 2,000 patients × 2 visits × 65 variables. `generate_multifile_sample.py` produces a 4-file split of the *same* 2,000 patients with the 65 variables distributed across 4 thematic files — ideal for testing the multi-file upload feature:
+`generate_synthetic.py` produces the single-file dataset of 2,000 patients × 2 visits × 65 variables, modelled on a real clinical extract:
+
+- each patient has a fixed profile (birth date, sex, origin, education level…) — demographics do not change between visits;
+- age is computed at each visit from the birth date, so it can go up by one year between visits;
+- clinical variables do change between visits;
+- distributions resemble a real population (e.g. `no_binario` and some origins are rare), so k-anonymity removes genuinely rare profiles.
+
+`generate_multifile_sample.py` does **not** generate new data: it splits that same file into 4 thematic files by variable. The union of the 4 files is exactly `dataset_2000p.csv`, so uploading the 4 files together or the single file gives the same result.
 
 ```bash
-python3 generate_synthetic.py          # → sample_data/dataset_2000p.csv
-python3 generate_multifile_sample.py   # → sample_data/1_…csv … 4_…csv (2,000 patients each)
+# inside the container (the host needs no Python)
+docker compose run --rm -v "${PWD}:/work" -w /work anonymizer \
+  sh -c "python generate_synthetic.py && python generate_multifile_sample.py"
 ```
+
+### Processing order
+
+The tool follows the same logic you would apply to a real extract:
+
+1. **Coherence first** — every value is read as text (patient IDs keep leading zeros and never turn into `12.0`), IDs are trimmed, rows without a patient or a variable are discarded and reported, and all files are combined into one dataset before anything is transformed.
+2. **Transformations on the real IDs** — date deltas, imputation, generalization and k-anonymity.
+3. **Pseudonymization last** — the HMAC is applied at the very end, only to the released records, with the same session key for every file, so a patient keeps the same `H-…` in every output table.
 
 ---
 
