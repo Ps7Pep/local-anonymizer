@@ -1,5 +1,5 @@
 /**
- * app.js — Datathon Anonymizer
+ * app.js — Local Anonymizer
  * -----------------------------
  * Flux: Càrrega → Classificació → Generalització → K-anonimitat → Resultats
  */
@@ -350,6 +350,11 @@ function renderUpload(data) {
   var notes = [];
   if (coh.n_dropped_rows)   notes.push(fmt('coherenceDropped', {n: nf(coh.n_dropped_rows)}));
   if (coh.n_duplicate_rows) notes.push(fmt('coherenceDupes',   {n: nf(coh.n_duplicate_rows)}));
+  var ignored = [];
+  Object.keys(coh.ignored_columns || {}).forEach(function(f){
+    coh.ignored_columns[f].forEach(function(c){ if (ignored.indexOf(c) === -1) ignored.push(c); });
+  });
+  if (ignored.length) notes.push(fmt('coherenceIgnored', {cols: ignored.join(', ')}));
   el('coherence-alert').style.display = notes.length ? 'block' : 'none';
   el('coherence-alert').innerHTML = notes.map(esc).join('<br>');
 

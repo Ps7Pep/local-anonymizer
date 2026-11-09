@@ -1,5 +1,5 @@
 """
-main.py — Datathon Anonymizer
+main.py — Local Anonymizer
 ------------------------------
 Endpoints:
   POST   /api/upload              → Càrrega de múltiples CSVs, normalització i perfilat
@@ -58,7 +58,7 @@ from app.modules.report_html import generate_html_report
 # ── App ───────────────────────────────────────────────────────────────────────
 # Sense CORS: el frontend es serveix des del mateix origen, i cap altra web
 # oberta al navegador de l'usuari ha de poder cridar l'API.
-app = FastAPI(title="Datathon Anonymizer", version=__version__)
+app = FastAPI(title="Local Anonymizer", version=__version__)
 # La imatge slim no porta /etc/mime.types: sense això les fonts surten com a octet-stream
 mimetypes.add_type("font/woff2", ".woff2")
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -507,11 +507,19 @@ def _finalize_upload(
     filenames   = []
     col_mappings: dict[str, dict[str, str]] = {}   # {filename: {canonical: raw_col}}
     dropped:      dict[str, dict[str, int]] = {}   # {filename: {without_patient, without_item}}
+    ignored:      dict[str, list[str]]      = {}   # {filename: [columnes fora del format]}
 
     for info in files_info:
         fname   = info["filename"]
         mapping = {c: mappings[fname][c] for c in _CANONICALS}
         df = apply_user_mapping(info["df_raw"].copy(), mapping)
+
+        # Només viatgen les 4 columnes del format: una columna de més (notes,
+        # observacions…) no passa per cap transformació i es publicaria tal qual.
+        extra = [c for c in df.columns if c not in _CANONICALS]
+        if extra:
+            ignored[fname] = extra
+            df = df.drop(columns=extra)
 
         if {"pacient", "item"} <= set(df.columns):
             no_patient = df["pacient"].isna()
@@ -538,6 +546,8 @@ def _finalize_upload(
         "dropped_rows":          dropped,
         "n_dropped_rows":        sum(d["without_patient"] + d["without_item"] for d in dropped.values()),
         "n_duplicate_rows":      int(df.duplicated(subset=list(_CANONICALS)).sum()),
+        "ignored_columns":       ignored,
+        "n_ignored_columns":     sum(len(c) for c in ignored.values()),
     }
 
     # ── Diagnòstic de relació entre fitxers (només té sentit si N > 1) ────────
@@ -787,7 +797,7 @@ def anonymize(req: AnonymizeRequest):
             title              = _REPORT_TITLES[lang],
             filename           = filenames_str,
             generated_at       = now_str,
-            tool               = f"Datathon Anonymizer v{__version__}",
+            tool               = f"Local Anonymizer v{__version__}",
             confidential_label = _CONFIDENTIAL[lang],
             lang               = lang,
         )

@@ -297,7 +297,7 @@ def generate_html_report(
     title: str,
     filename: str,
     generated_at: str,
-    tool: str = "Datathon Anonymizer",
+    tool: str = "Local Anonymizer",
     confidential_label: str = "DOCUMENT CONFIDENCIAL · ÚS INTERN",
     lang: str = "es",
 ) -> str:

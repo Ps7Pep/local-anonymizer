@@ -1,5 +1,5 @@
 FROM python:3.12-slim
-LABEL description="Datathon Anonymizer v4 — Local clinical anonymization tool"
+LABEL description="Local Anonymizer v4 — Local clinical anonymization tool"
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 WORKDIR /app

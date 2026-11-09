@@ -1,6 +1,6 @@
-# 🔐 Datathon Anonymizer
+# 🔐 Local Anonymizer
 
-> Local and portable tool for preparing anonymized clinical datasets for health datathons.
+> Local and portable tool for anonymizing clinical datasets before they are shared in the post-Datathon InCa phase and the TSI project pilots.
 
 **[🇪🇸 Castellano](docs/README.es.md) · [🇨🇦 Català](docs/README.ca.md)**
 
@@ -98,7 +98,8 @@ If your data is split into related domain files, you can upload them all at once
 
 **Requirements when uploading multiple files:**
 
-- Each file must have **exactly 4 columns**: `pacient`, `data`, `item`, `valor`
+- Only the **4 expected columns** are used: `pacient`, `data`, `item`, `valor`. Any other column is ignored and never reaches the output; the ignored names are shown after upload and listed in the report
+- Put the **care line in the file name** (e.g. `dataset_AH.csv`; AH, AP or LE): outputs keep the original name and the CSV has no care-line column
 - All files must share the **same patient identifier** (same values in the `pacient` column for the same patient)
 - Variables must **not overlap** between files — each clinical variable should appear in only one file
 - All files must describe the **same population** — if they don't (independent datasets, different care lines, different cohorts), process them in separate sessions
@@ -192,20 +193,20 @@ The protection offered by this process rests on **three independent and compleme
 | HMAC-SHA256 on patient ID (per-session secret key, discarded) | Pseudonymisation that cannot be reversed by dictionary attack |
 | Timestamp → integer minute delta (per patient) | Absolute dates destroyed; intra-day patterns preserved |
 | Quasi-identifier generalization | Cross-linkage granularity eliminated |
-| K-anonymity | Mathematical impossibility of singling out |
+| K-anonymity | No quasi-identifier profile shared by fewer than k patients |
 
-### Layer 2 — Statistical (sampling uncertainty)
+### Layer 2 — Statistical (presence uncertainty)
 
-The datathon dataset is a **random sample** of a much larger population. A potential attacker cannot know a priori whether a specific individual is in the dataset at all. This uncertainty — recognised by ENISA and the Article 29 Working Party as a re-identification risk mitigating factor — makes any re-identification attempt speculative and unreliable, regardless of the attacker's background knowledge.
+Each dataset is a bounded extract: one care line and, for the new extracts, the year 2024. When the extract is a **sample** of the reference population, a potential attacker cannot know a priori whether a specific individual is in the dataset at all — a re-identification risk mitigating factor recognised by ENISA and the Article 29 Working Party. If the extract covers the whole population of the care line and period, this uncertainty does not apply and protection rests on layers 1 and 3.
 
-### Layer 3 — Organizational (datathon environment)
+### Layer 3 — Organizational (project environment)
 
-- **Accredited participants**: access restricted to a pre-selected, registered group
-- **Data Use Agreement**: all participants sign a binding commitment prohibiting any re-identification attempt
-- **Secure infrastructure**: event hosted on **Instituto de Salud Carlos III (Madrid)** servers, managed by qualified ISCIII staff
-- **Closed environment**: data cannot be extracted outside the controlled systems
+- **Accredited participants**: access only after signing the Data Use and Confidentiality Agreement of the post-Datathon InCa phase and TSI pilots, until 31 May 2027 at the latest
+- **Limited purpose**: review and harmonization of variables, weighting, and development, evaluation and validation of models on care complexity and needs
+- **No re-identification or linkage**: re-identification attempts and combination with external sources are prohibited
+- **Secure environment**: work takes place in the ISCIII project SharePoint and applications published on Red SARA; downloads only when essential, on corporate devices, never on personal devices, cloud services or external tools, including generative AI
 
-> The combination of these three layers provides protection **substantially above** what GDPR and ENISA guidelines require for health research data.
+> The final assessment of residual risk rests with each centre's Data Protection Officer.
 
 ---
 
@@ -213,8 +214,8 @@ The datathon dataset is a **random sample** of a much larger population. A poten
 
 | File | Format | For |
 |------|--------|-----|
-| `*_anonymized.csv` | CSV | Datathon participants (single file upload) |
-| `datasets_anonymized.zip` | ZIP | Datathon participants (multiple file upload — one CSV per original file) |
+| `*_anonymized.csv` | CSV | Project SharePoint (single file upload) |
+| `datasets_anonymized.zip` | ZIP | Project SharePoint (multiple file upload — one CSV per original file) |
 | `*_report.html` (single file) / `anonymization_report.html` (multi-file) | Styled HTML | DPO (printable as PDF from browser) |
 | `anonymization_report.json` | JSON | Audit and traceability |
 
@@ -352,4 +353,4 @@ Pull requests welcome. For major changes, please open an issue first.
 
 ---
 
-*Built for healthcare centres wishing to participate in datathons while protecting their patients' privacy.*
+*Built for healthcare centres sharing clinical data for research while protecting their patients' privacy.*

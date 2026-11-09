@@ -1,4 +1,4 @@
-# ── Datathon Anonymizer ───────────────────────────────────────────────────────
+# ── Local Anonymizer ───────────────────────────────────────────────────────
 # Opció A — Imatge pre-construïda (recomanada, no requereix internet)
 #   docker compose up -d
 #

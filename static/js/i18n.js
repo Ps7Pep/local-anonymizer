@@ -4,8 +4,8 @@
 var TRANSLATIONS = {
   ca: {
     // App
-    appTitle: "Datathon Anonymizer",
-    appSubtitle: "Anonimització clínica local",
+    appTitle: "Local Anonymizer",
+    appSubtitle: "Post-Datathon InCa · pilots TSI",
     footerNote: "Cap dada surt d'aquest equip · Execució 100 % local",
     lang_ca: "català", lang_es: "castellà", lang_en: "anglès",
 
@@ -18,8 +18,8 @@ var TRANSLATIONS = {
     // Fase 1
     ph1Tag: "Fase 01 de 04",
     ph1Title: "Carrega els fitxers CSV",
-    ph1Desc: "Format llarg, una fila per observació, amb 4 columnes: identificador del pacient, data, variable i valor. Els noms de les columnes poden variar; si no es reconeixen, et demanarem que confirmis quina és quina.",
-    singleDatasetBanner: "<strong>Una sessió = un dataset.</strong> Pots pujar diversos fitxers només si són parts temàtiques d'un mateix dataset (mateixos pacients, variables diferents). Les dades de línies assistencials independents (primària, hospitalària, sociosanitària…) s'anonimitzen en sessions separades.",
+    ph1Desc: "Format llarg, una fila per observació, amb 4 columnes: identificador del pacient, data, variable i valor. Els noms de les columnes poden variar; si no es reconeixen, et demanarem que confirmis quina és quina. Qualsevol altra columna s'ignora.",
+    singleDatasetBanner: "<strong>Una sessió = un dataset.</strong> Pots pujar diversos fitxers només si són parts temàtiques d'un mateix dataset (mateixos pacients, variables diferents). Les dades de línies assistencials independents (primària, hospitalària, sociosanitària…) s'anonimitzen en sessions separades. Indica la línia assistencial al nom del fitxer (AH, AP o LE; p. ex. <code>dataset_AH.csv</code>).",
     dropZoneTitle: "Arrossega aquí els fitxers CSV",
     dropZoneSub: "o fes clic per seleccionar-los · un o més fitxers · UTF-8, Latin-1 o CP1252",
     uploading: "Processant",
@@ -41,6 +41,8 @@ var TRANSLATIONS = {
     continueHintMulti: "Confirma la relació entre els fitxers per continuar.",
     coherenceDropped: "S'han descartat {n} files sense identificador de pacient o sense variable.",
     coherenceDupes: "Hi ha {n} files idèntiques repetides (mateix pacient, data, variable i valor); es conserven. Amb diversos fitxers sol indicar taules que se solapen.",
+    coherenceIgnored: "S'han ignorat aquestes columnes, que no formen part del format i no arriben a la sortida: {cols}.",
+    uploadNote: "Puja al SharePoint del projecte només el CSV anonimitzat, un cop el DPD n'hagi validat l'informe. El fitxer original no surt del teu centre.",
     numeric: "numèric",
     categorical: "categòric",
 
@@ -181,7 +183,7 @@ var TRANSLATIONS = {
     groups: "grups",
     downloadTitle: "Descàrregues",
     downloadCSV: "Dataset anonimitzat",
-    downloadCSVSub: "CSV llest per al datathon",
+    downloadCSVSub: "CSV per compartir al SharePoint del projecte",
     downloadCSVSubMulti: "ZIP amb un CSV anonimitzat per fitxer original",
     downloadHTML: "Informe per al DPD",
     downloadHTMLSub: "HTML · es pot imprimir com a PDF des del navegador",
@@ -193,8 +195,8 @@ var TRANSLATIONS = {
   },
 
   es: {
-    appTitle: "Datathon Anonymizer",
-    appSubtitle: "Anonimización clínica local",
+    appTitle: "Local Anonymizer",
+    appSubtitle: "Post-Datathon InCa · pilotos TSI",
     footerNote: "Ningún dato sale de este equipo · Ejecución 100 % local",
     lang_ca: "catalán", lang_es: "castellano", lang_en: "inglés",
 
@@ -205,8 +207,8 @@ var TRANSLATIONS = {
 
     ph1Tag: "Fase 01 de 04",
     ph1Title: "Carga los ficheros CSV",
-    ph1Desc: "Formato largo, una fila por observación, con 4 columnas: identificador del paciente, fecha, variable y valor. Los nombres de las columnas pueden variar; si no se reconocen, te pediremos que confirmes cuál es cuál.",
-    singleDatasetBanner: "<strong>Una sesión = un dataset.</strong> Puedes subir varios ficheros solo si son partes temáticas de un mismo dataset (mismos pacientes, variables distintas). Los datos de líneas asistenciales independientes (primaria, hospitalaria, sociosanitaria…) se anonimizan en sesiones separadas.",
+    ph1Desc: "Formato largo, una fila por observación, con 4 columnas: identificador del paciente, fecha, variable y valor. Los nombres de las columnas pueden variar; si no se reconocen, te pediremos que confirmes cuál es cuál. Cualquier otra columna se ignora.",
+    singleDatasetBanner: "<strong>Una sesión = un dataset.</strong> Puedes subir varios ficheros solo si son partes temáticas de un mismo dataset (mismos pacientes, variables distintas). Los datos de líneas asistenciales independientes (primaria, hospitalaria, sociosanitaria…) se anonimizan en sesiones separadas. Indica la línea asistencial en el nombre del fichero (AH, AP o LE; p. ej. <code>dataset_AH.csv</code>).",
     dropZoneTitle: "Arrastra aquí los ficheros CSV",
     dropZoneSub: "o haz clic para seleccionarlos · uno o más ficheros · UTF-8, Latin-1 o CP1252",
     uploading: "Procesando",
@@ -228,6 +230,8 @@ var TRANSLATIONS = {
     continueHintMulti: "Confirma la relación entre los ficheros para continuar.",
     coherenceDropped: "Se han descartado {n} filas sin identificador de paciente o sin variable.",
     coherenceDupes: "Hay {n} filas idénticas repetidas (mismo paciente, fecha, variable y valor); se conservan. Con varios ficheros suele indicar tablas que se solapan.",
+    coherenceIgnored: "Se han ignorado estas columnas, que no forman parte del formato y no llegan a la salida: {cols}.",
+    uploadNote: "Sube al SharePoint del proyecto solo el CSV anonimizado, una vez que el DPD haya validado el informe. El fichero original no sale de tu centro.",
     numeric: "numérico",
     categorical: "categórico",
 
@@ -362,7 +366,7 @@ var TRANSLATIONS = {
     groups: "grupos",
     downloadTitle: "Descargas",
     downloadCSV: "Dataset anonimizado",
-    downloadCSVSub: "CSV listo para el datathon",
+    downloadCSVSub: "CSV para compartir en el SharePoint del proyecto",
     downloadCSVSubMulti: "ZIP con un CSV anonimizado por fichero original",
     downloadHTML: "Informe para el DPD",
     downloadHTMLSub: "HTML · se puede imprimir como PDF desde el navegador",
@@ -374,8 +378,8 @@ var TRANSLATIONS = {
   },
 
   en: {
-    appTitle: "Datathon Anonymizer",
-    appSubtitle: "Local clinical anonymization",
+    appTitle: "Local Anonymizer",
+    appSubtitle: "Post-Datathon InCa · TSI pilots",
     footerNote: "No data leaves this machine · 100% local execution",
     lang_ca: "Catalan", lang_es: "Spanish", lang_en: "English",
 
@@ -386,8 +390,8 @@ var TRANSLATIONS = {
 
     ph1Tag: "Phase 01 of 04",
     ph1Title: "Load your CSV files",
-    ph1Desc: "Long format, one row per observation, with 4 columns: patient identifier, date, variable and value. Column names may vary; if they are not recognised, you will be asked to confirm which is which.",
-    singleDatasetBanner: "<strong>One session = one dataset.</strong> You can upload several files only if they are thematic parts of the same dataset (same patients, different variables). Data from independent care lines (primary care, hospital, long-term care…) must be anonymized in separate sessions.",
+    ph1Desc: "Long format, one row per observation, with 4 columns: patient identifier, date, variable and value. Column names may vary; if they are not recognised, you will be asked to confirm which is which. Any other column is ignored.",
+    singleDatasetBanner: "<strong>One session = one dataset.</strong> You can upload several files only if they are thematic parts of the same dataset (same patients, different variables). Data from independent care lines (primary care, hospital, long-term care…) must be anonymized in separate sessions. Put the care line in the file name (AH, AP or LE; e.g. <code>dataset_AH.csv</code>).",
     dropZoneTitle: "Drop your CSV files here",
     dropZoneSub: "or click to select them · one or more files · UTF-8, Latin-1 or CP1252",
     uploading: "Processing",
@@ -409,6 +413,8 @@ var TRANSLATIONS = {
     continueHintMulti: "Confirm how the files are related to continue.",
     coherenceDropped: "{n} rows without a patient identifier or variable were discarded.",
     coherenceDupes: "There are {n} repeated identical rows (same patient, date, variable and value); they are kept. With several files this usually means overlapping tables.",
+    coherenceIgnored: "These columns were ignored because they are not part of the format, and do not reach the output: {cols}.",
+    uploadNote: "Upload only the anonymized CSV to the project SharePoint, once the DPO has validated the report. The original file does not leave your centre.",
     numeric: "numeric",
     categorical: "categorical",
 
@@ -543,7 +549,7 @@ var TRANSLATIONS = {
     groups: "groups",
     downloadTitle: "Downloads",
     downloadCSV: "Anonymized dataset",
-    downloadCSVSub: "CSV ready for the datathon",
+    downloadCSVSub: "CSV to share on the project SharePoint",
     downloadCSVSubMulti: "ZIP with one anonymized CSV per original file",
     downloadHTML: "Report for the DPO",
     downloadHTMLSub: "HTML · can be printed as PDF from the browser",

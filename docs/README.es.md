@@ -1,6 +1,6 @@
-# 🔐 Datathon Anonymizer
+# 🔐 Local Anonymizer
 
-> Herramienta local y portable para la preparación de datasets clínicos anonimizados para datathons sanitarios.
+> Herramienta local y portable para anonimizar datasets clínicos antes de compartirlos en la fase post-Datathon InCa y en los pilotos del proyecto TSI.
 
 **[🇬🇧 English](../README.md) · [🇨🇦 Català](README.ca.md)**
 
@@ -75,7 +75,8 @@ Si tus datos están repartidos en ficheros temáticos relacionados, puedes subir
 
 **Requisitos cuando se suben múltiples ficheros:**
 
-- Cada fichero debe tener **exactamente 4 columnas**: `pacient`, `data`, `item`, `valor`
+- Solo se usan las **4 columnas esperadas**: `pacient`, `data`, `item`, `valor`. Cualquier otra columna se ignora y no llega a la salida; sus nombres se muestran tras la carga y constan en el informe
+- Indica la **línea asistencial en el nombre del fichero** (p. ej. `dataset_AH.csv`; AH, AP o LE): las salidas conservan el nombre original y el CSV no lleva columna de línea
 - Todos los ficheros deben compartir el **mismo identificador de paciente**
 - Las variables **no deben repetirse** entre ficheros
 - Todos los ficheros deben describir la **misma población** — si no es así (datasets independientes, líneas asistenciales distintas, cohortes distintas), procesa cada uno en una sesión separada
@@ -160,20 +161,20 @@ La protección que ofrece este proceso se sustenta en **tres capas independiente
 | HMAC-SHA256 del identificador (clave secreta de sesión, descartada) | Seudonimización no reversible por ataque de diccionario |
 | Timestamp → delta entero en minutos (por paciente) | Fechas absolutas destruidas; patrones intra-día preservados |
 | Generalización de cuasi-IDs | Granularidad de cruce eliminada |
-| K-anonimidad | Imposibilidad matemática de singularización |
+| K-anonimidad | Ningún perfil de cuasi-identificadores compartido por menos de k pacientes |
 
-### Capa 2 — Estadística (incertidumbre de muestreo)
+### Capa 2 — Estadística (incertidumbre de presencia)
 
-El dataset del datathon es una **muestra aleatoria** de una población clínica mucho mayor. Un potencial atacante no puede saber a priori si una persona concreta está en el dataset. Esta incertidumbre — reconocida por la ENISA y el Grupo de Trabajo del Artículo 29 como factor mitigador del riesgo de reidentificación — hace que cualquier intento de reidentificación sea especulativo y poco fiable, independientemente del conocimiento previo del atacante.
+Cada dataset corresponde a una extracción acotada: una línea asistencial y, en las nuevas extracciones, el año 2024. Cuando la extracción es una **muestra** de la población de referencia, un potencial atacante no puede saber a priori si una persona concreta está en el dataset, un factor mitigador del riesgo de reidentificación reconocido por la ENISA y el Grupo de Trabajo del Artículo 29. Si la extracción incluye a toda la población de la línea y del período, esta incertidumbre no se aplica y la protección descansa en las capas 1 y 3.
 
-### Capa 3 — Organizacional (entorno del Datathon)
+### Capa 3 — Organizacional (entorno del proyecto)
 
-- **Participantes acreditados**: acceso restringido a un grupo limitado, previamente identificado y registrado
-- **Acuerdo de uso de datos (DUA)**: todos los participantes firman un compromiso formal que prohíbe expresamente cualquier intento de identificación de individuos, con sanciones en caso de incumplimiento
-- **Infraestructura segura**: el evento tiene lugar en los servidores del **Instituto de Salud Carlos III (Madrid)**, gestionados por su propio personal cualificado
-- **Entorno cerrado**: los datos no pueden ser exportados fuera de los sistemas controlados de la organización durante el Datathon
+- **Participantes acreditados**: acceso solo tras firmar el Acuerdo de uso de datos y confidencialidad de la fase post-Datathon InCa y de los pilotos TSI, como máximo hasta el 31 de mayo de 2027
+- **Finalidad limitada**: revisión y armonización de variables, ponderación y desarrollo, evaluación y validación de modelos sobre complejidad y necesidades de cuidados
+- **Prohibición de reidentificación y de cruces**: se prohíbe cualquier intento de reidentificación y la combinación con fuentes externas
+- **Entorno seguro**: se trabaja en el SharePoint del proyecto y en aplicaciones publicadas en Red SARA (ISCIII); descargas solo cuando sea imprescindible, en equipos corporativos, nunca en dispositivos personales, servicios en la nube o herramientas externas, incluida la IA generativa
 
-> La combinación de estas tres capas proporciona una protección **sustancialmente superior** a lo que exigen el RGPD y las guías de la ENISA para el tratamiento de datos de salud con fines de investigación.
+> La valoración final del riesgo residual corresponde al Delegado/a de Protección de Datos de cada centro.
 
 ---
 
@@ -186,8 +187,8 @@ El dataset del datathon es una **muestra aleatoria** de una población clínica 
 | `nivel_educativo` | 🟡 Medio | QI si el dataset tiene <500 pacientes |
 | `situacion_de_convivencia` | 🟡 Medio | QI si el dataset tiene <500 pacientes |
 | `origen` | 🟡 Medio | QI en poblaciones locales pequeñas |
-| `estado_cognitivo` | 🟢 Bajo | Opcional; con el muestreo ya hay protección suficiente |
-| Resto de variables | 🟢 Muy bajo | No identificativas en contexto de datathon |
+| `estado_cognitivo` | 🟢 Bajo | Opcional |
+| Resto de variables | 🟢 Muy bajo | No identificativas, salvo texto libre, que nunca debe incluirse |
 
 Con 2.000 pacientes de una comunidad grande, `edad` + `sexo_y_o_genero` con k=3 ofrece una protección muy robusta.
 
@@ -269,4 +270,4 @@ MIT — Libre para uso, modificación y distribución. Se agradece la atribució
 
 ---
 
-*Construido para centros sanitarios que desean participar en datathons protegiendo la privacidad de sus pacientes.*
+*Construido para centros sanitarios que comparten datos clínicos para investigación protegiendo la privacidad de sus pacientes.*

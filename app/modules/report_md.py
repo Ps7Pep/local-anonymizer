@@ -33,7 +33,7 @@ T = {
 "title":"Informe d'Anonimització de Dades Clíniques",
 "subtitle":"Document tècnic per al Delegat/ada de Protecció de Dades",
 "generated":"Generat el","tool":"Eina","version":"Versió",
-"filename":"Fitxer processat","lang":"Idioma de l'informe","lang_val":"Català",
+"filename":"Fitxer processat","lang":"Idioma de l'informe","lang_val":"Català","project":"Projecte","project_val":"Fase post-Datathon InCa i pilots del projecte TSI «EU Health Hub – Investing in Resilient Health Systems»",
 "s_summary":"1. Resum executiu",
 "s_dataset":"2. Descripció del dataset original",
 "s_methodology":"3. Metodologia d'anonimització",
@@ -49,11 +49,11 @@ T = {
 "seguint els principis de minimització de dades i protecció de la privacitat "
 "establerts pel Reglament General de Protecció de Dades (RGPD, Reglament UE 2016/679) "
 "i la Llei Orgànica 3/2018 de Protecció de Dades Personals i garantia dels drets digitals (LOPDGDD). "
-"El procés ha estat realitzat mitjançant l'eina **Datathon Anonymizer**, "
+"El procés ha estat realitzat mitjançant l'eina **Local Anonymizer**, "
 "que opera íntegrament en local sense transmetre cap dada a serveis externs."),
 "summary_method":("La tècnica principal aplicada és la **k-anonimitat**, que garanteix que cada "
-"combinació de quasi-identificadors aparegui en almenys **k** registres, "
-"fent matemàticament impossible la singularització d'un individu. "
+"combinació de quasi-identificadors aparegui en almenys **k** pacients, "
+"de manera que cap pacient es pugui singularitzar per aquests atributs. "
 "Complementàriament, s'han pseudonimitzat els identificadors directes amb un hash amb clau secreta "
 "i s'han convertit les dates a delta temporal."),
 "summary_result":"El resultat del procés ha estat:",
@@ -62,13 +62,13 @@ T = {
 "ds_date_range":"Rang de dates","ds_col_mapping":"Correspondència de columnes (columna original al CSV → columna canònica interna)",
 "ds_file":"Fitxer",
 "ds_dropped":"Files descartades (sense pacient o sense variable)",
-"ds_duplicates":"Files idèntiques repetides (conservades)",
+"ds_duplicates":"Files idèntiques repetides (conservades)","ds_ignored":"Columnes ignorades (no arriben a la sortida)",
 "meth_intro":("El procés d'anonimització s'ha estructurat en les fases següents, "
 "aplicades de forma seqüencial sobre el dataset:"),
 "meth_step1_title":"Fase 1 — Normalització i coherència del dataset",
 "meth_step1_body":("Abans de cap transformació s'ha assegurat la coherència del dataset:\n\n"
 "- Les columnes de cada fitxer s'han mapejat als noms canònics interns (`pacient`, `data`, `item`, `valor`), "
-"per àlies habituals (`patient_id`, `variable`, `value`…) o amb confirmació explícita de l'usuari.\n"
+"per àlies habituals (`patient_id`, `variable`, `value`…) o amb confirmació explícita de l'usuari. Qualsevol altra columna es descarta i no arriba a la sortida.\n"
 "- Tots els valors s'han llegit com a text, sense inferència de tipus: els identificadors es conserven "
 "exactament (p. ex. `0012` no passa a `12` ni a `12.0`) i són comparables entre fitxers.\n"
 "- S'han eliminat els espais als extrems dels identificadors i descartat les files sense pacient o sense variable.\n"
@@ -150,10 +150,9 @@ T = {
 "eq_suppressed_detail":"Detall dels grups suprimits (fins a 20)",
 "eq_none_suppressed":"Cap grup ha estat suprimit. Tots els pacients compleixen el criteri de k-anonimitat.",
 # ── GARANTIES (substitueix limitacions) ──────────────────────────────────────
-"guar_intro":("El dataset generat per aquest procés ofereix **múltiples capes de protecció "
-"superposades** que el fan apte per al seu ús en el Datathon. "
-"Cada capa actua de forma independent i les tres juntes proporcionen un nivell de "
-"seguretat molt superior al que seria necessari en el context d'ús descrit."),
+"guar_intro":("El dataset generat per aquest procés compta amb **tres capes de protecció complementàries** "
+"per al seu ús a la fase post-Datathon InCa i als pilots del projecte TSI. "
+"Cada capa actua de forma independent."),
 "guar_layer1_title":"Capa 1 — Protecció tècnica (transformacions aplicades)",
 "guar_layer1_body":("Les transformacions aplicades en aquest procés eliminen o ofusquen "
 "tota la informació que permet la identificació directa o indirecta:\n\n"
@@ -165,59 +164,56 @@ T = {
 "La granularitat original (que podria permetre creuaments amb fonts externes) ha estat eliminada.\n"
 "- **K-anonimitat**: garantia matemàtica que cap perfil de quasi-identificadors "
 "és únic al dataset. Cada individu és indistingible d'almenys k−1 altres."),
-"guar_layer2_title":"Capa 2 — Incertesa de mostreig (protecció inherent al context)",
-"guar_layer2_body":("El dataset del Datathon és una **mostra aleatòria** d'una població clínica "
-"molt més gran. Aquesta característica afegeix una capa de protecció estadística "
-"que és independent de les transformacions tècniques aplicades:\n\n"
-"> Un potencial atacant que intenti reidentificar una persona concreta "
-"**no pot saber a priori si aquella persona és al dataset**. "
-"La incertesa sobre la presència mateixa de l'individu a la mostra "
-"fa que qualsevol intent de reidentificació sigui especulatiu i poc fiable.\n\n"
-"Aquesta propietat, reconeguda per l'ENISA i el Grup de Treball de l'Article 29 "
-"com a factor mitigador del risc de reidentificació, s'aplica a tots els individus "
-"del dataset independentment del seu perfil demogràfic o clínic."),
-"guar_layer3_title":"Capa 3 — Controls organitzacionals i de l'entorn del Datathon",
-"guar_layer3_body":("Més enllà de les proteccions tècniques i estadístiques, el marc organitzatiu "
-"del Datathon proporciona una tercera capa de salvaguarda:\n\n"
-"- **Participants seleccionats i acreditats**: l'accés al dataset és restringit "
-"a un grup limitat de participants prèviament identificats, acreditats i registrats.\n"
-"- **Acord d'ús de dades (Data Use Agreement)**: tots els participants signen un "
-"compromís formal d'ús responsable, que prohibeix expressament qualsevol intent "
-"d'identificació d'individus i estableix sancions en cas d'incompliment.\n"
-"- **Entorn tècnic segur**: l'esdeveniment té lloc en la infraestructura de servidors "
-"de l'**Instituto de Salud Carlos III (Madrid)**, gestionada pel seu propi personal "
-"qualificat. L'accés és físicament i lògicament restringit a l'àmbit de l'esdeveniment.\n"
-"- **Dades no exportables**: el dataset opera en un entorn tancat durant el Datathon. "
-"Cap participant pot extreure dades fora dels sistemes controlats de l'organització."),
+"guar_layer2_title":"Capa 2 — Incertesa de presència (abast de l'extracció)",
+"guar_layer2_body":("Cada dataset correspon a una extracció acotada: una línia assistencial i, a les noves "
+"extraccions, l'any 2024. Quan l'extracció és una **mostra** de la població de referència, qui intenti "
+"reidentificar una persona concreta **no pot saber a priori si aquella persona és al dataset**. Aquesta "
+"incertesa, reconeguda per l'ENISA i el Grup de Treball de l'Article 29 com a factor mitigador del risc de "
+"reidentificació, és independent de les transformacions tècniques.\n\n"
+"Si l'extracció inclou tota la població de la línia i del període, aquesta incertesa no s'aplica i la protecció "
+"descansa en les capes 1 i 3. El DPD ho ha de tenir en compte en valorar el risc residual."),
+"guar_layer3_title":"Capa 3 — Controls organitzacionals i de l'entorn del projecte",
+"guar_layer3_body":("L'accés a les dades es regeix per l'**Acord d'ús de dades i confidencialitat** de la fase "
+"post-Datathon InCa i dels pilots del projecte TSI «EU Health Hub – Investing in Resilient Health Systems», "
+"promogut pel Ministeri de Sanitat, l'OMS – Oficina Regional per a Europa i l'Instituto de Salud Carlos III (ISCIII):\n\n"
+"- **Participants acreditats**: només hi accedeixen participants autoritzats que han signat l'acord, i com a màxim fins al 31 de maig de 2027.\n"
+"- **Finalitat limitada**: revisió i harmonització de variables, ponderació i desenvolupament, avaluació i validació "
+"de models, algorismes i anàlisis sobre complexitat i necessitats de cures.\n"
+"- **Prohibició de reidentificació i de creuaments**: es prohibeix qualsevol intent de reidentificació i la combinació "
+"amb fonts externes. Els creuaments entre conjunts del projecte requereixen autorització expressa dins de l'entorn segur de l'ISCIII.\n"
+"- **Entorn segur**: es treballa als espais habilitats per l'ISCIII (SharePoint del projecte i aplicacions publicades a Red SARA). "
+"La descàrrega només s'admet quan és imprescindible, en equips corporatius de la institució, mai en dispositius personals "
+"ni en serveis al núvol o eines externes, incloses les d'intel·ligència artificial generativa, i les còpies locals s'eliminen en acabar cada tasca.\n"
+"- **Incidències i responsabilitats**: qualsevol informació que permeti identificar una persona o accés no autoritzat es "
+"comunica immediatament a la coordinació i a l'equip responsable de l'entorn de l'ISCIII. L'incompliment pot comportar la "
+"retirada de l'accés i la comunicació a l'autoritat competent."),
 "guar_summary_title":"Síntesi de les garanties",
-"guar_summary_body":("La combinació de les tres capes descrites constitueix una protecció "
-"**substancialment superior** al que exigeixen el RGPD i les guies de l'ENISA "
-"per al tractament de dades de salut amb finalitats d'investigació:\n\n"
+"guar_summary_body":("Les tres capes es complementen:\n\n"
 "| Capa | Tipus | Protecció aportada |\n"
 "|------|-------|--------------------|\n"
-"| Tècnica | K-anonimitat + HMAC amb clau de sessió + delta de minuts + generalització | Impossibilitat matemàtica de singularització |\n"
-"| Estadística | Incertesa de mostreig | Incertesa sobre la presència de cada individu |\n"
-"| Organitzacional | DUA + entorn segur ISCIII + participants acreditats | Control d'accés i responsabilitat legal |\n\n"
-"**El dataset resultant d'aquest procés és apte per al seu ús en el Datathon.**"),
+"| Tècnica | K-anonimitat + HMAC amb clau de sessió + delta de minuts + generalització | Cap perfil dels quasi-identificadors seleccionats és compartit per menys de k pacients |\n"
+"| Estadística | Extracció acotada i, si escau, mostreig | Incertesa sobre la presència de cada individu quan l'extracció és una mostra |\n"
+"| Organitzacional | Acord d'ús de dades + SharePoint i Red SARA de l'ISCIII + participants acreditats | Control d'accés i responsabilitat legal |\n\n"
+"**Un cop validat pel DPD, el dataset resultant es podrà incorporar a l'entorn autoritzat del projecte.**"),
 # ── CONCLUSIONS ───────────────────────────────────────────────────────────────
 "con_intro":("El dataset ha estat processat seguint les tècniques estàndard "
 "d'anonimització estadística reconegudes per la normativa europea de protecció de dades "
-"i les guies de l'ENISA. La combinació de la k-anonimitat amb la incertesa de mostreig "
-"i els controls organitzacionals del Datathon fa que el risc residual de reidentificació "
-"sigui **negligible en el context d'ús previst**.\n\n"
-"**El dataset és apte per al seu ús en el Datathon.**"),
+"i les guies de l'ENISA. La combinació de la k-anonimitat amb els controls tècnics i "
+"organitzacionals descrits redueix el risc de reidentificació en el context d'ús previst.\n\n"
+"**La valoració final del risc residual correspon al DPD.**"),
 "con_signed":"Certificació tècnica del procés:",
 "con_items":[
 "Les transformacions han estat aplicades de forma sistemàtica i documentada.",
-"El valor de k garanteix la indistingibilitat de tots els individus del dataset final.",
+"El valor de k garanteix la indistingibilitat dels individus del dataset final respecte dels quasi-identificadors seleccionats.",
 "L'informe complet del procés queda disponible per a la seva revisió pel DPD/DPO.",
-"El dataset resultant no conté identificadors directes ni dates absolutes.",
+"L'identificador de pacient ha estat substituït, les dates d'observació convertides en deltes i només es conserven les 4 columnes del format.",
 "Totes les decisions de classificació han estat preses per l'usuari responsable del centre.",
 ],
-"con_closing":("Aquest informe ha estat generat automàticament per l'eina Datathon Anonymizer. "
+"con_closing":("Aquest informe ha estat generat automàticament per l'eina Local Anonymizer. "
 "Les decisions de classificació i generalització de variables han estat preses per "
-"l'usuari responsable del centre. El DPD/DPO ha de revisar i validar aquest informe "
-"abans de la posada a disposició del dataset als participants del Datathon."),
+"l'usuari responsable del centre. L'eina no inspecciona el contingut de les variables no identificatives: "
+"el responsable del centre ha d'assegurar que no inclouen text lliure, identificadors directes ni dates. "
+"El DPD/DPO ha de revisar i validar aquest informe abans d'incorporar el dataset a l'entorn del projecte."),
 },
 }
 
@@ -225,7 +221,7 @@ T["es"] = {
 "title":"Informe de Anonimización de Datos Clínicos",
 "subtitle":"Documento técnico para el Delegado/a de Protección de Datos",
 "generated":"Generado el","tool":"Herramienta","version":"Versión",
-"filename":"Fichero procesado","lang":"Idioma del informe","lang_val":"Castellano",
+"filename":"Fichero procesado","lang":"Idioma del informe","lang_val":"Castellano","project":"Proyecto","project_val":"Fase post-Datathon InCa y pilotos del proyecto TSI «EU Health Hub – Investing in Resilient Health Systems»",
 "s_summary":"1. Resumen ejecutivo","s_dataset":"2. Descripción del dataset original",
 "s_methodology":"3. Metodología de anonimización","s_classification":"4. Clasificación de los ítems",
 "s_generalizations":"5. Generalizaciones aplicadas a los cuasi-identificadores",
@@ -238,11 +234,11 @@ T["es"] = {
 "siguiendo los principios de minimización de datos y protección de la privacidad "
 "establecidos por el Reglamento General de Protección de Datos (RGPD, Reglamento UE 2016/679) "
 "y la Ley Orgánica 3/2018 de Protección de Datos Personales y garantía de los derechos digitales (LOPDGDD). "
-"El proceso ha sido realizado mediante la herramienta **Datathon Anonymizer**, "
+"El proceso ha sido realizado mediante la herramienta **Local Anonymizer**, "
 "que opera íntegramente en local sin transmitir ningún dato a servicios externos."),
 "summary_method":("La técnica principal aplicada es la **k-anonimidad**, que garantiza que cada "
-"combinación de cuasi-identificadores aparezca en al menos **k** registros, "
-"haciendo matemáticamente imposible la singularización de un individuo. "
+"combinación de cuasi-identificadores aparezca en al menos **k** pacientes, "
+"de modo que ningún paciente pueda singularizarse por esos atributos. "
 "Complementariamente, se han seudonimizado los identificadores directos con un hash con clave secreta "
 "y se han convertido las fechas a delta temporal."),
 "summary_result":"El resultado del proceso ha sido:",
@@ -251,12 +247,12 @@ T["es"] = {
 "ds_date_range":"Rango de fechas","ds_col_mapping":"Correspondencia de columnas (columna original en el CSV → columna canónica interna)",
 "ds_file":"Fichero",
 "ds_dropped":"Filas descartadas (sin paciente o sin variable)",
-"ds_duplicates":"Filas idénticas repetidas (conservadas)",
+"ds_duplicates":"Filas idénticas repetidas (conservadas)","ds_ignored":"Columnas ignoradas (no llegan a la salida)",
 "meth_intro":"El proceso de anonimización se ha estructurado en las siguientes fases secuenciales:",
 "meth_step1_title":"Fase 1 — Normalización y coherencia del dataset",
 "meth_step1_body":("Antes de cualquier transformación se ha asegurado la coherencia del dataset:\n\n"
 "- Las columnas de cada fichero se han mapeado a los nombres canónicos internos (`pacient`, `data`, `item`, `valor`), "
-"por alias habituales (`patient_id`, `variable`, `value`…) o con confirmación explícita del usuario.\n"
+"por alias habituales (`patient_id`, `variable`, `value`…) o con confirmación explícita del usuario. Cualquier otra columna se descarta y no llega a la salida.\n"
 "- Todos los valores se han leído como texto, sin inferencia de tipos: los identificadores se conservan "
 "exactamente (p. ej. `0012` no pasa a `12` ni a `12.0`) y son comparables entre ficheros.\n"
 "- Se han eliminado los espacios en los extremos de los identificadores y descartado las filas sin paciente o sin variable.\n"
@@ -326,10 +322,9 @@ T["es"] = {
 "eq_dist_title":"Distribución de tamaños de grupo","eq_size":"Tamaño del grupo","eq_ngroups":"Nº de grupos",
 "eq_suppressed_detail":"Detalle de grupos suprimidos (hasta 20)",
 "eq_none_suppressed":"Ningún grupo suprimido. Todos los pacientes cumplen el criterio de k-anonimidad.",
-"guar_intro":("El dataset generado por este proceso ofrece **múltiples capas de protección "
-"superpuestas** que lo hacen apto para su uso en el Datathon. "
-"Cada capa actúa de forma independiente y las tres juntas proporcionan un nivel de "
-"seguridad muy superior al necesario en el contexto de uso descrito."),
+"guar_intro":("El dataset generado por este proceso cuenta con **tres capas de protección complementarias** "
+"para su uso en la fase post-Datathon InCa y en los pilotos del proyecto TSI. "
+"Cada capa actúa de forma independiente."),
 "guar_layer1_title":"Capa 1 — Protección técnica (transformaciones aplicadas)",
 "guar_layer1_body":("Las transformaciones aplicadas eliminan u ofuscan toda la información "
 "que permite la identificación directa o indirecta:\n\n"
@@ -341,65 +336,62 @@ T["es"] = {
 "La granularidad original ha sido eliminada.\n"
 "- **K-anonimidad**: garantía matemática de que ningún perfil de cuasi-identificadores "
 "es único en el dataset. Cada individuo es indistinguible de al menos k−1 otros."),
-"guar_layer2_title":"Capa 2 — Incertidumbre de muestreo (protección inherente al contexto)",
-"guar_layer2_body":("El dataset del Datathon es una **muestra aleatoria** de una población clínica "
-"mucho mayor. Esta característica añade una capa de protección estadística "
-"independiente de las transformaciones técnicas aplicadas:\n\n"
-"> Un potencial atacante que intente reidentificar a una persona concreta "
-"**no puede saber a priori si esa persona está en el dataset**. "
-"La incertidumbre sobre la presencia del individuo en la muestra hace que "
-"cualquier intento de reidentificación sea especulativo y poco fiable.\n\n"
-"Esta propiedad, reconocida por la ENISA y el Grupo de Trabajo del Artículo 29 "
-"como factor mitigador del riesgo de reidentificación, se aplica a todos los individuos "
-"del dataset con independencia de su perfil demográfico o clínico."),
-"guar_layer3_title":"Capa 3 — Controles organizacionales y del entorno del Datathon",
-"guar_layer3_body":("Más allá de las protecciones técnicas y estadísticas, el marco organizacional "
-"del Datathon proporciona una tercera capa de salvaguarda:\n\n"
-"- **Participantes seleccionados y acreditados**: el acceso al dataset está restringido "
-"a un grupo limitado de participantes previamente identificados, acreditados y registrados.\n"
-"- **Acuerdo de uso de datos (Data Use Agreement)**: todos los participantes firman un "
-"compromiso formal de uso responsable, que prohíbe expresamente cualquier intento "
-"de identificación de individuos y establece sanciones en caso de incumplimiento.\n"
-"- **Entorno técnico seguro**: el evento tiene lugar en la infraestructura de servidores "
-"del **Instituto de Salud Carlos III (Madrid)**, gestionada por su propio personal "
-"cualificado. El acceso es física y lógicamente restringido al ámbito del evento.\n"
-"- **Datos no exportables**: el dataset opera en un entorno cerrado durante el Datathon. "
-"Ningún participante puede extraer datos fuera de los sistemas controlados de la organización."),
+"guar_layer2_title":"Capa 2 — Incertidumbre de presencia (alcance de la extracción)",
+"guar_layer2_body":("Cada dataset corresponde a una extracción acotada: una línea asistencial y, en las nuevas "
+"extracciones, el año 2024. Cuando la extracción es una **muestra** de la población de referencia, quien intente "
+"reidentificar a una persona concreta **no puede saber a priori si esa persona está en el dataset**. Esta "
+"incertidumbre, reconocida por la ENISA y el Grupo de Trabajo del Artículo 29 como factor mitigador del riesgo de "
+"reidentificación, es independiente de las transformaciones técnicas.\n\n"
+"Si la extracción incluye a toda la población de la línea y del período, esta incertidumbre no se aplica y la protección "
+"descansa en las capas 1 y 3. El DPD debe tenerlo en cuenta al valorar el riesgo residual."),
+"guar_layer3_title":"Capa 3 — Controles organizacionales y del entorno del proyecto",
+"guar_layer3_body":("El acceso a los datos se rige por el **Acuerdo de uso de datos y confidencialidad** de la fase "
+"post-Datathon InCa y de los pilotos del proyecto TSI «EU Health Hub – Investing in Resilient Health Systems», "
+"promovido por el Ministerio de Sanidad, la OMS – Oficina Regional para Europa y el Instituto de Salud Carlos III (ISCIII):\n\n"
+"- **Participantes acreditados**: solo acceden participantes autorizados que han firmado el acuerdo, y como máximo hasta el 31 de mayo de 2027.\n"
+"- **Finalidad limitada**: revisión y armonización de variables, ponderación y desarrollo, evaluación y validación "
+"de modelos, algoritmos y análisis sobre complejidad y necesidades de cuidados.\n"
+"- **Prohibición de reidentificación y de cruces**: se prohíbe cualquier intento de reidentificación y la combinación "
+"con fuentes externas. Los cruces entre conjuntos del proyecto requieren autorización expresa dentro del entorno seguro del ISCIII.\n"
+"- **Entorno seguro**: se trabaja en los espacios habilitados por el ISCIII (SharePoint del proyecto y aplicaciones publicadas en Red SARA). "
+"La descarga solo se admite cuando es imprescindible, en equipos corporativos de la institución, nunca en dispositivos personales "
+"ni en servicios en la nube o herramientas externas, incluidas las de inteligencia artificial generativa, y las copias locales se eliminan al finalizar cada tarea.\n"
+"- **Incidencias y responsabilidades**: cualquier información que permita identificar a una persona o acceso no autorizado se "
+"comunica de inmediato a la coordinación y al equipo responsable del entorno del ISCIII. El incumplimiento puede conllevar la "
+"retirada del acceso y la comunicación a la autoridad competente."),
 "guar_summary_title":"Síntesis de las garantías",
-"guar_summary_body":("La combinación de las tres capas descritas constituye una protección "
-"**sustancialmente superior** a lo que exigen el RGPD y las guías de la ENISA "
-"para el tratamiento de datos de salud con fines de investigación:\n\n"
+"guar_summary_body":("Las tres capas se complementan:\n\n"
 "| Capa | Tipo | Protección aportada |\n"
 "|------|------|---------------------|\n"
-"| Técnica | K-anonimidad + HMAC con clave de sesión + delta de minutos + generalización | Imposibilidad matemática de singularización |\n"
-"| Estadística | Incertidumbre de muestreo | Incertidumbre sobre la presencia de cada individuo |\n"
-"| Organizacional | DUA + entorno seguro ISCIII + participantes acreditados | Control de acceso y responsabilidad legal |\n\n"
-"**El dataset resultante de este proceso es apto para su uso en el Datathon.**"),
+"| Técnica | K-anonimidad + HMAC con clave de sesión + delta de minutos + generalización | Ningún perfil de los cuasi-identificadores seleccionados es compartido por menos de k pacientes |\n"
+"| Estadística | Extracción acotada y, si procede, muestreo | Incertidumbre sobre la presencia de cada individuo cuando la extracción es una muestra |\n"
+"| Organizacional | Acuerdo de uso de datos + SharePoint y Red SARA del ISCIII + participantes acreditados | Control de acceso y responsabilidad legal |\n\n"
+"**Una vez validado por el DPD, el dataset resultante podrá incorporarse al entorno autorizado del proyecto.**"),
 "con_intro":("El dataset ha sido procesado siguiendo las técnicas estándar de anonimización "
 "estadística reconocidas por la normativa europea de protección de datos y las guías de la ENISA. "
-"La combinación de la k-anonimidad con la incertidumbre de muestreo y los controles "
-"organizacionales del Datathon hace que el riesgo residual de reidentificación sea "
-"**negligible en el contexto de uso previsto**.\n\n"
-"**El dataset es apto para su uso en el Datathon.**"),
+"La combinación de la k-anonimidad con los controles técnicos y organizacionales descritos "
+"reduce el riesgo de reidentificación en el contexto de uso previsto.\n\n"
+"**La valoración final del riesgo residual corresponde al DPD.**"),
 "con_signed":"Certificación técnica del proceso:",
 "con_items":[
 "Las transformaciones han sido aplicadas de forma sistemática y documentada.",
-"El valor de k garantiza la indistinguibilidad de todos los individuos del dataset final.",
+"El valor de k garantiza la indistinguibilidad de los individuos del dataset final respecto de los cuasi-identificadores seleccionados.",
 "El informe completo del proceso queda disponible para su revisión por el DPD/DPO.",
-"El dataset resultante no contiene identificadores directos ni fechas absolutas.",
+"El identificador de paciente ha sido sustituido, las fechas de observación convertidas en deltas y solo se conservan las 4 columnas del formato.",
 "Todas las decisiones de clasificación han sido tomadas por el usuario responsable del centro.",
 ],
-"con_closing":("Informe generado automáticamente por Datathon Anonymizer. "
+"con_closing":("Informe generado automáticamente por Local Anonymizer. "
 "Las decisiones de clasificación y generalización han sido tomadas por el usuario responsable. "
-"El DPD/DPO debe revisar y validar este informe antes de la puesta a disposición "
-"del dataset a los participantes del Datathon."),
+"La herramienta no inspecciona el contenido de las variables no identificativas: "
+"el responsable del centro debe asegurar que no incluyen texto libre, identificadores directos ni fechas. "
+"El DPD/DPO debe revisar y validar este informe antes de incorporar el dataset al entorno del proyecto."),
 }
 
 T["en"] = {
 "title":"Clinical Data Anonymization Report",
 "subtitle":"Technical document for the Data Protection Officer",
 "generated":"Generated on","tool":"Tool","version":"Version",
-"filename":"Processed file","lang":"Report language","lang_val":"English",
+"filename":"Processed file","lang":"Report language","lang_val":"English","project":"Project","project_val":"Post-Datathon InCa phase and pilots of the TSI project “EU Health Hub – Investing in Resilient Health Systems”",
 "s_summary":"1. Executive Summary","s_dataset":"2. Original Dataset Description",
 "s_methodology":"3. Anonymization Methodology","s_classification":"4. Item Classification",
 "s_generalizations":"5. Generalizations Applied to Quasi-identifiers",
@@ -410,11 +402,11 @@ T["en"] = {
 "summary_intro":("This report documents the anonymization process applied to the indicated dataset, "
 "following the data minimization and privacy protection principles established by the "
 "General Data Protection Regulation (GDPR, EU Regulation 2016/679). "
-"The process was carried out using **Datathon Anonymizer**, which operates entirely "
+"The process was carried out using **Local Anonymizer**, which operates entirely "
 "locally without transmitting any data to external services."),
-"summary_method":("The main technique applied is **k-anonymity**, which mathematically guarantees "
-"that each quasi-identifier combination appears in at least **k** records, "
-"making it impossible to single out any individual. Complementary protections "
+"summary_method":("The main technique applied is **k-anonymity**, which guarantees "
+"that each quasi-identifier combination appears in at least **k** patients, "
+"so no patient can be singled out by those attributes. Complementary protections "
 "include keyed-hash pseudonymization of direct identifiers and temporal delta conversion of dates."),
 "summary_result":"The outcome of the process was:",
 "kanon_label":"K-anonymity","none":"_(none)_","and_more":"and {n} more",
@@ -422,12 +414,12 @@ T["en"] = {
 "ds_date_range":"Date range","ds_col_mapping":"Column mapping (original CSV column → internal canonical column)",
 "ds_file":"File",
 "ds_dropped":"Discarded rows (no patient or no variable)",
-"ds_duplicates":"Repeated identical rows (kept)",
+"ds_duplicates":"Repeated identical rows (kept)","ds_ignored":"Ignored columns (not in the output)",
 "meth_intro":"The anonymization process was structured in the following sequential phases:",
 "meth_step1_title":"Phase 1 — Dataset Normalization and Coherence",
 "meth_step1_body":("Before any transformation, the coherence of the dataset was ensured:\n\n"
 "- Each file's columns were mapped to the internal canonical names (`pacient`, `data`, `item`, `valor`), "
-"via common aliases (`patient_id`, `variable`, `value`…) or explicit user confirmation.\n"
+"via common aliases (`patient_id`, `variable`, `value`…) or explicit user confirmation. Any other column is discarded and does not reach the output.\n"
 "- All values were read as text, without type inference: identifiers are kept exactly "
 "(e.g. `0012` does not become `12` or `12.0`) and are comparable across files.\n"
 "- Leading/trailing spaces were removed from identifiers, and rows without a patient or a variable were discarded.\n"
@@ -499,10 +491,9 @@ T["en"] = {
 "eq_dist_title":"Group size distribution","eq_size":"Group size","eq_ngroups":"No. of groups",
 "eq_suppressed_detail":"Suppressed groups detail (up to 20)",
 "eq_none_suppressed":"No groups suppressed. All patients satisfy the k-anonymity criterion.",
-"guar_intro":("The dataset generated by this process offers **multiple overlapping layers of protection** "
-"that make it suitable for use in the Datathon. "
-"Each layer operates independently, and together they provide a level of security "
-"well above what is required for the described use context."),
+"guar_intro":("The dataset generated by this process has **three complementary layers of protection** "
+"for its use in the post-Datathon InCa phase and the TSI project pilots. "
+"Each layer operates independently."),
 "guar_layer1_title":"Layer 1 — Technical Protection (applied transformations)",
 "guar_layer1_body":("The applied transformations eliminate or obfuscate all information "
 "enabling direct or indirect identification:\n\n"
@@ -514,58 +505,54 @@ T["en"] = {
 "eliminating the granularity that could enable external linkage attacks.\n"
 "- **K-anonymity**: mathematical guarantee that no quasi-identifier profile is unique "
 "in the dataset. Each individual is indistinguishable from at least k−1 others."),
-"guar_layer2_title":"Layer 2 — Sampling Uncertainty (inherent contextual protection)",
-"guar_layer2_body":("The Datathon dataset is a **random sample** of a much larger clinical population. "
-"This characteristic adds a statistical layer of protection independent of the "
-"technical transformations applied:\n\n"
-"> A potential attacker attempting to re-identify a specific person "
-"**cannot know a priori whether that person is in the dataset at all**. "
-"The uncertainty about an individual's very presence in the sample makes any "
-"re-identification attempt speculative and unreliable.\n\n"
-"This property — recognized by ENISA and the Article 29 Working Party as a "
-"re-identification risk mitigating factor — applies to all individuals in the dataset "
-"regardless of their demographic or clinical profile."),
-"guar_layer3_title":"Layer 3 — Organizational Controls and Datathon Environment",
-"guar_layer3_body":("Beyond the technical and statistical protections, the organizational "
-"framework of the Datathon provides a third safeguard layer:\n\n"
-"- **Selected and accredited participants**: access to the dataset is restricted to a "
-"limited group of previously identified, accredited and registered participants.\n"
-"- **Data Use Agreement (DUA)**: all participants sign a formal responsible-use commitment "
-"that expressly prohibits any attempt to identify individuals and establishes "
-"penalties for non-compliance.\n"
-"- **Secure technical environment**: the event takes place on the server infrastructure "
-"of the **Instituto de Salud Carlos III (Madrid)**, managed by its own qualified staff. "
-"Access is physically and logically restricted to the event context.\n"
-"- **Non-exportable data**: the dataset operates in a closed environment during the Datathon. "
-"No participant can extract data outside the organization's controlled systems."),
+"guar_layer2_title":"Layer 2 — Presence Uncertainty (scope of the extract)",
+"guar_layer2_body":("Each dataset is a bounded extract: one care line and, for the new extracts, the year 2024. "
+"When the extract is a **sample** of the reference population, anyone attempting to re-identify a specific person "
+"**cannot know a priori whether that person is in the dataset at all**. This uncertainty, recognized by ENISA and the "
+"Article 29 Working Party as a re-identification risk mitigating factor, is independent of the technical transformations.\n\n"
+"If the extract covers the whole population of the care line and period, this uncertainty does not apply and protection "
+"rests on layers 1 and 3. The DPO must take this into account when assessing residual risk."),
+"guar_layer3_title":"Layer 3 — Organizational Controls and Project Environment",
+"guar_layer3_body":("Access to the data is governed by the **Data Use and Confidentiality Agreement** of the "
+"post-Datathon InCa phase and the pilots of the TSI project “EU Health Hub – Investing in Resilient Health Systems”, "
+"promoted by the Spanish Ministry of Health, WHO Regional Office for Europe and Instituto de Salud Carlos III (ISCIII):\n\n"
+"- **Accredited participants**: access only for authorized participants who have signed the agreement, and until 31 May 2027 at the latest.\n"
+"- **Limited purpose**: review and harmonization of variables, weighting, and development, evaluation and validation "
+"of models, algorithms and analyses on care complexity and needs.\n"
+"- **No re-identification or linkage**: any re-identification attempt and any combination with external sources is prohibited. "
+"Crossing project datasets requires express authorization within the ISCIII secure environment.\n"
+"- **Secure environment**: work takes place in the spaces enabled by ISCIII (project SharePoint and applications published on Red SARA). "
+"Downloads are allowed only when essential, on corporate devices of the institution, never on personal devices "
+"or cloud services or external tools, including generative AI, and local copies are deleted at the end of each task.\n"
+"- **Incidents and accountability**: any information that could identify a person or any unauthorized access is reported "
+"immediately to the project coordination and the team responsible for the ISCIII environment. Non-compliance may lead to "
+"withdrawal of access and notification to the competent authority."),
 "guar_summary_title":"Summary of Guarantees",
-"guar_summary_body":("The combination of the three layers described constitutes protection "
-"**substantially above** what the GDPR and ENISA guidelines require for health data "
-"processing for research purposes:\n\n"
+"guar_summary_body":("The three layers complement each other:\n\n"
 "| Layer | Type | Protection provided |\n"
 "|-------|------|---------------------|\n"
-"| Technical | K-anonymity + session-keyed HMAC + minute delta + generalization | Mathematical impossibility of singling out |\n"
-"| Statistical | Sampling uncertainty | Uncertainty about each individual's presence |\n"
-"| Organizational | DUA + secure ISCIII environment + accredited participants | Access control and legal accountability |\n\n"
-"**The dataset resulting from this process is suitable for use in the Datathon.**"),
+"| Technical | K-anonymity + session-keyed HMAC + minute delta + generalization | No profile of the selected quasi-identifiers is shared by fewer than k patients |\n"
+"| Statistical | Bounded extract and, where applicable, sampling | Uncertainty about each individual's presence when the extract is a sample |\n"
+"| Organizational | Data Use Agreement + ISCIII SharePoint and Red SARA + accredited participants | Access control and legal accountability |\n\n"
+"**Once validated by the DPO, the resulting dataset may be added to the project's authorized environment.**"),
 "con_intro":("The dataset has been processed following the standard statistical anonymization "
 "techniques recognized by European data protection law and ENISA guidelines. "
-"The combination of k-anonymity with sampling uncertainty and the Datathon's "
-"organizational controls makes the residual re-identification risk "
-"**negligible in the intended use context**.\n\n"
-"**The dataset is suitable for use in the Datathon.**"),
+"The combination of k-anonymity with the technical and organizational controls described "
+"reduces the re-identification risk in the intended use context.\n\n"
+"**The final assessment of residual risk rests with the DPO.**"),
 "con_signed":"Technical certification of the process:",
 "con_items":[
 "Transformations have been applied systematically and are fully documented.",
-"The value of k guarantees indistinguishability of all individuals in the final dataset.",
+"The value of k guarantees indistinguishability of the individuals in the final dataset with respect to the selected quasi-identifiers.",
 "The full process report is available for DPO review.",
-"The resulting dataset contains no direct identifiers or absolute dates.",
+"The patient identifier has been replaced, observation dates converted to deltas, and only the 4 format columns are kept.",
 "All classification decisions were made by the responsible user at the contributing centre.",
 ],
-"con_closing":("This report was automatically generated by Datathon Anonymizer. "
+"con_closing":("This report was automatically generated by Local Anonymizer. "
 "Classification and generalization decisions were made by the responsible user. "
-"The DPO must review and validate this report before making the dataset available "
-"to Datathon participants."),
+"The tool does not inspect the content of non-identifying variables: "
+"the responsible user must ensure they contain no free text, direct identifiers or dates. "
+"The DPO must review and validate this report before the dataset is added to the project environment."),
 }
 
 
@@ -601,7 +588,8 @@ def generate_markdown_report(lang, filename, col_mappings, classifications,
     ln(); ln("---"); ln()
     ln(f"| | |"); ln("|---|---|")
     ln(f"| **{t['generated']}** | {now} |")
-    ln(f"| **{t['tool']}** | Datathon Anonymizer v{version} |")
+    ln(f"| **{t['tool']}** | Local Anonymizer v{version} |")
+    ln(f"| **{t['project']}** | {t['project_val']} |")
     ln(f"| **{t['filename']}** | {_code(filename)} |")
     ln(f"| **{t['lang']}** | {t['lang_val']} |")
     ln(); ln("---"); ln()
@@ -639,6 +627,8 @@ def generate_markdown_report(lang, filename, col_mappings, classifications,
     coherence = coherence or {}
     ln(f"| {t['ds_dropped']} | {coherence.get('n_dropped_rows', 0):,} |")
     ln(f"| {t['ds_duplicates']} | {coherence.get('n_duplicate_rows', 0):,} |")
+    ignored = sorted({c for cols in coherence.get("ignored_columns", {}).values() for c in cols})
+    ln(f"| {t['ds_ignored']} | {', '.join(_code(c) for c in ignored) if ignored else t['none']} |")
     ln()
 
     # 3. METODOLOGIA — en l'ordre real del pipeline: coherència, dates,
