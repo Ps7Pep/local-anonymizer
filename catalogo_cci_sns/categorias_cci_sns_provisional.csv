@@ -168,12 +168,15 @@ D5V10,3,No evaluable,,"No evaluable:No es posible valorar la existencia o impact
 D5V13,1,No,,"No: La situación migratoria, el origen o el contexto cultural no generan necesidades específicas de adaptación, coordinación o apoyo adicionales en el proceso de cuidados.",1,0,
 D5V13,2,Sí,,"Sí: La situación migratoria, el origen o el contexto cultural condicionan el acceso, comprensión o continuidad de los cuidados, requiriendo adaptación cultural, mediación, coordinación social, apoyo comunitario, orientación sobre el sistema sanitario o planificación específica.",0,0,
 D5V13,3,No evaluable,,No evaluable:No se dispone de información suficiente o no procede valorar esta dimensión en el episodio asistencial.,0,1,
-D5V14,1,Prematuro,,Prematuro: Extremo de edad / vulnerabilidad evolutiva,0,0,Nombre cambiado a «Edad extrema/vulnerable». Falta categoría de referencia para edades no extremas (p. ej. 18–74 años).
-D5V14,2,Menor de 2 años,,Menor de 2 años: Extremo de edad,0,0,
-D5V14,3,Preescolar,,Preescolar:Etapa de desarrollo con posible adaptación de cuidados,0,0,
-D5V14,4,Escolar,,Escolar:Etapa de desarrollo con posible adaptación de cuidados,0,0,
-D5V14,5,Adolescente,,Adolescente:Etapa de desarrollo con posible adaptación de cuidados,0,0,
-D5V14,6,75–89 años,,75-89 años: Edad avanzada,0,0,
-D5V14,7,≥90 años,,≥90 años: Edad muy avanzada,0,0,
+D5V14,1,Recién nacido prematuro,"<37 semanas de gestación, hasta 27 días después de la fecha probable de parto","Recién nacido prematuro: Extremo de edad / vulnerabilidad evolutiva. Nacido antes de la semana 37 de gestación, desde el nacimiento hasta 27 días después de la fecha probable de parto (ICH E11). Tiene prioridad sobre «Lactante» mientras se cumpla el criterio.",0,0,"Franjas propuestas a partir de ICH E11(R1) (pediatría) y de los cortes geriátricos habituales (65 y 75 años); la referencia es Adulto (18–64 años). La complejidad por edad es en U: los factores se asignan a mano. Pendiente de validar por el grupo del catálogo."
+D5V14,2,Recién nacido a término,0–27 días (≥37 semanas de gestación),Recién nacido a término: Extremo de edad. Nacido en la semana 37 de gestación o después; desde el nacimiento hasta los 27 días de vida.,0,0,
+D5V14,3,Lactante,28 días–23 meses,Lactante: Extremo de edad. Desde los 28 días hasta los 23 meses de vida.,0,0,
+D5V14,4,Preescolar,2–5 años,Preescolar: Etapa de desarrollo con posible adaptación de cuidados.,0,0,
+D5V14,5,Escolar,6–11 años,Escolar: Etapa de desarrollo con posible adaptación de cuidados.,0,0,
+D5V14,6,Adolescente,12–17 años,Adolescente: Etapa de desarrollo con posible adaptación de cuidados.,0,0,
+D5V14,7,Adulto,18–64 años,Adulto: Edad sin necesidades de cuidados específicas por la edad.,1,0,
+D5V14,8,Persona mayor,65–74 años,Persona mayor: Inicio de la fragilidad y de la multimorbilidad asociadas a la edad.,0,0,
+D5V14,9,Edad avanzada,75–89 años,Edad avanzada,0,0,
+D5V14,10,Edad muy avanzada,≥90 años,Edad muy avanzada,0,0,
 D5V15,1,Masculino,,,0,0,Marcado como PROPUESTA; hay dos esquemas (sexo biológico / género). Se usa provisionalmente sexo biológico.
 D5V15,2,Femenino,,,0,0,

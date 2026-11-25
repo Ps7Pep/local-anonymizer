@@ -163,21 +163,30 @@ For each variable, the user indicates its role:
 
 For each quasi-identifier, the user defines how to group values:
 
-- **Numeric variables** → custom intervals (e.g. age → `0-17`, `18-39`, `40-64`, `65+`)
+- **Numeric variables** → custom intervals (e.g. number of drugs → `0-4`, `5-9`, `10+`)
 - **Categorical variables** → mapping of original values to broader groups
 
 Missing values (NaN) are automatically imputed on the original values, before generalization:
 - Categorical → `Desconocido`
 - Numeric → median of the observed set
 
-Nothing falls out of a generalization silently: numeric values outside the cut points become `Fuera de rango`, non-numeric values in a binned item become `Desconocido`, and the counts (plus values without a category mapping) are shown in the results and in the report.
+Nothing falls out of a generalization silently: numeric values outside the cut points become `Fuera de rango`, empty or non-numeric values in a binned item become `Desconocido`, and the counts (plus values without a category mapping) are shown in the results and in the report.
+
+**Age and the CCI-SNS catalogue.** The extracts are mapped in the CCI-SNS portal to the categories of the catalogue variable *Edad* (D5V14), one closed code per age band. A band that crosses a catalogue boundary (1, 2, 6, 12, 18, 65, 75, 90 years) can no longer be assigned, and the whole variable is lost. Every numeric quasi-identifier therefore offers a **"CCI-SNS catalogue ranges (Age, D5V14)"** option. It is ticked by default when the item name looks like age (`edad`, `edat`, `age`), and can be unticked. When ticked, the ranges are fixed and cannot be edited:
+
+| Label (completed years) | `0` | `1` | `2-5` | `6-11` | `12-17` | `18-64` | `65-74` | `75-89` | `90-130` |
+|---|---|---|---|---|---|---|---|---|---|
+| Catalogue category | none¹ | C03 Lactante | C04 Preescolar | C05 Escolar | C06 Adolescente | C07 Adulto | C08 Persona mayor | C09 Edad avanzada | C10 Edad muy avanzada |
+
+¹ Telling a newborn (C01/C02) from an infant (C03) needs age in days and gestational weeks, so `0` stays without a category. `Desconocido` and `Fuera de rango` also stay without a category. Missing ages are **not imputed** on an aligned item, because a median would get an invented category. The backend rejects any other configuration for an aligned item (no internal cuts, ASCII hyphens). The report includes the label → category table with the catalogue date.
 
 ### Phase 4 — K-anonymity and results
 
 - **Preview simulation**: shows the impact of k=2, 3, 4, 5 before running
 - **Parameter k**: every quasi-identifier combination must appear in ≥ k patients
-- **Longitudinal signature**: a patient's combination is the set of all values each quasi-identifier takes across their visits (e.g. age band `60-64 | 65+`), so k also holds when a quasi-identifier changes between visits
-- **Suppression**: patients in groups below k are removed from the final dataset
+- **Longitudinal signature**: a patient's combination is the set of all values each quasi-identifier takes across their visits (e.g. age band `18-64 | 65-74`), so k also holds when a quasi-identifier changes between visits
+- **Suppress the value before the patient** (per-item option, on by default for catalogue-aligned items): when a patient is in a group below k, their values of those items are first changed to `Desconocido` and k is checked again. Categories are never merged, so every released value can still be mapped (a suppressed value simply has no category). Patients who already met k are not touched
+- **Suppression**: patients still in groups below k are removed from the final dataset
 - **Metrics**: patient flow, equivalence class distribution, suppressed groups
 
 ---

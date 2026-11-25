@@ -29,7 +29,11 @@ Segueix la lògica d'un extracte real:
 
 `generate_multifile_sample.py` reparteix cada dataset en 5 fitxers, un per domini.
 
-Ús (dins del contenidor; només llibreria estàndard):
+Abans de generar res comprova que les franges fixes de l'anonimitzador
+(`CATALOG_SCHEMES`, p. ex. Edat D5V14) encara coincideixen amb el catàleg: si
+el portal en canvia les categories, s'atura igual que amb `SCALES`.
+
+Ús (dins del contenidor, des de l'arrel del repo):
     python generate_synthetic.py
 """
 
@@ -168,6 +172,53 @@ def load_catalog(catalog_dir: str = CATALOG_DIR) -> list[dict]:
             "scale":      scale,
         })
     return out
+
+
+_YEARS_RE   = re.compile(r"^(\d+)–(\d+) años$")
+_YEARS_GE_RE = re.compile(r"^≥(\d+) años$")
+
+
+def check_catalog_schemes(catalog_dir: str = CATALOG_DIR) -> None:
+    """Les franges fixes de l'anonimitzador han de seguir encaixant amb el
+    catàleg: mateixos ids i noms de categoria, i cada criteri en anys igual a
+    l'interval [a, b-1] de la seva etiqueta. Si el portal canvia les franges,
+    l'anonimitzador produiria etiquetes que ja no es poden mapejar."""
+    from app.modules.anonymizer import CATALOG_SCHEMES
+
+    with open(os.path.join(catalog_dir, "categorias_cci_sns_provisional.csv"), newline="", encoding="utf-8") as f:
+        rows = list(csv.DictReader(f))
+    for name, sc in CATALOG_SCHEMES.items():
+        cats = {f"{sc['var_id']}C{int(r['orden']):02d}": r
+                for r in rows if r["var_id"] == sc["var_id"]}
+        year_ranges = set()
+        for r in cats.values():
+            m, ge = _YEARS_RE.match(r["criterio"]), _YEARS_GE_RE.match(r["criterio"])
+            if m:
+                year_ranges.add((int(m[1]), int(m[2])))
+            elif ge:
+                year_ranges.add((int(ge[1]), None))
+        expected_ranges = set()
+        b = sc["bins"]
+        for i, (label, cat) in enumerate(zip(sc["labels"], sc["categories"])):
+            if cat is None:
+                continue
+            row = cats.get(cat["id"])
+            if row is None or row["categoria"] != cat["name"]:
+                raise ValueError(f"{name}: {cat['id']} «{cat['name']}» ja no és al catàleg "
+                                 f"({row['categoria'] if row else 'absent'}) — revisa CATALOG_SCHEMES")
+            lo, hi = b[i], b[i + 1] - 1
+            m, ge = _YEARS_RE.match(row["criterio"]), _YEARS_GE_RE.match(row["criterio"])
+            if m or ge:
+                got = (int(m[1]), int(m[2])) if m else (int(ge[1]), None)
+                want = (lo, hi) if m else (lo, None)
+                if got != want:
+                    raise ValueError(f"{name}: l'etiqueta {label} és [{lo}, {hi}] anys però "
+                                     f"{cat['id']} diu «{row['criterio']}» — revisa CATALOG_SCHEMES")
+                expected_ranges.add(got)
+        # Cap franja en anys del catàleg pot quedar sense etiqueta pròpia
+        if year_ranges != expected_ranges:
+            raise ValueError(f"{name}: franges en anys del catàleg {sorted(year_ranges, key=str)} "
+                             f"≠ etiquetes {sorted(expected_ranges, key=str)} — revisa CATALOG_SCHEMES")
 
 
 def domain_files(catalog: list[dict]) -> dict[str, str]:
@@ -330,6 +381,7 @@ def dataset_path(line: str) -> str:
 
 
 if __name__ == "__main__":
+    check_catalog_schemes()
     catalog = load_catalog()
     for line in LINES:
         rows = generate_rows(line, catalog)

@@ -11,7 +11,8 @@ var State = {
   sessionId:       null,
   items:           [],          // perfils dels ítems [{name, type, n_unique, values, stats, ...}]
   classifications: {},          // { item → 'quasi_id' | 'non_id' }
-  generalizations: {},          // { item → { type, bins?, labels?, labelsInput?, mapping?, unmapped_label? } }
+  generalizations: {},          // { item → { type, bins?, labels?, labelsInput?, mapping?, unmapped_label?, catalog?, suppressValue? } }
+  catalogSchemes:  null,        // franges fixes del catàleg CCI-SNS (les envia /api/classify)
   dateFormat:      'iso',       // 'iso' | 'dayfirst' | 'monthfirst'
   detectedFormat:  'iso',       // el que va proposar el backend, per marcar-lo a la UI
   dateDetection:   null,        // { best, n_total, candidates, samples }
@@ -40,6 +41,11 @@ var QI_HINTS = ['edad', 'edat', 'age', 'sexo', 'sexe', 'sex', 'genero', 'gender'
   'provincia', 'comarca', 'region', 'etnia', 'raza', 'ethnic', 'civil', 'educa', 'estudi',
   'ocupacion', 'profesi', 'laboral', 'empleo', 'idioma', 'migra', 'nacimiento', 'birth',
   'convivencia', 'socioeconom'];
+// Esquema del catàleg CCI-SNS per a l'edat. Les franges les dona el backend;
+// aquí només es decideix a quins ítems es proposa per defecte (paraula
+// sencera: «Edad», «edad_anos», «age_years», però no «stage» ni «language»).
+var CCI_AGE_SCHEME = 'cci_sns_edad';
+var AGE_TOKENS = ['edad', 'edat', 'age', 'ages'];
 
 // ── Utils ─────────────────────────────────────────────────────────────────────
 function el(id)    { return document.getElementById(id); }
@@ -574,10 +580,11 @@ function setRole(btn, role) {
 async function saveClassifications() {
   hideErr('classify-error');
   try {
-    await api('/api/classify','POST',{
+    var res = await api('/api/classify','POST',{
       session_id:      State.sessionId,
       classifications: State.classifications,
     });
+    State.catalogSchemes = res.catalog_schemes || null;
     resetPhase4();
     goToPhase(3);
   } catch(err) {
@@ -609,8 +616,7 @@ function buildQiBlock(name, profile) {
   block.setAttribute('data-idx', itemIdx(name));
 
   var cfg         = State.generalizations[name] || {};
-  var defaultType = profile.type==='numeric' ? 'bins' : 'mapping';
-  var activeType  = cfg.type || defaultType;
+  var activeType  = cfg.type || defaultTypeOf(profile);
 
   block.innerHTML =
     '<button type="button" class="qi-block-header" aria-expanded="true" aria-controls="body-'+cid+'" onclick="toggleBlock(\''+cid+'\')">' +
@@ -629,9 +635,72 @@ function buildQiBlock(name, profile) {
       '<div id="qi-config-'+cid+'" style="display:flex; flex-direction:column; gap:14px;">' +
         buildTypeConfig(name, profile, activeType, cfg) +
       '</div>' +
+      '<label class="check-label option-box">' +
+        '<input type="checkbox" id="suppress-'+cid+'"'+(suppressValueOn(profile, cfg) ? ' checked' : '')+' onchange="toggleSuppressValue(this)">' +
+        '<span><strong>'+t('suppressValueToggle')+'</strong><span class="input-help" style="display:block;">'+t('suppressValueHelp')+'</span></span>' +
+      '</label>' +
     '</div>';
 
   return block;
+}
+
+// ── Catàleg CCI-SNS i supressió del valor ─────────────────────────────────────
+function defaultTypeOf(profile) { return profile.type==='numeric' ? 'bins' : 'mapping'; }
+function looksLikeAge(name) {
+  return normName(name).split(/[^a-z0-9]+/).some(function(tk){ return AGE_TOKENS.indexOf(tk) >= 0; });
+}
+function ageScheme() { return (State.catalogSchemes || {})[CCI_AGE_SCHEME] || null; }
+// Alineat: decisió explícita de l'usuari o, si no n'ha pres cap, per defecte
+// els ítems numèrics amb nom d'edat. Només s'aplica en mode intervals.
+function isCatalogAligned(profile, cfg) {
+  if (!ageScheme() || profile.type !== 'numeric') return false;
+  if ((cfg.type || defaultTypeOf(profile)) !== 'bins') return false;
+  return cfg.catalog !== undefined ? !!cfg.catalog : looksLikeAge(profile.name);
+}
+// Per defecte activada als ítems alineats; després, el que triï l'usuari
+function suppressValueOn(profile, cfg) {
+  return cfg.suppressValue !== undefined ? !!cfg.suppressValue : isCatalogAligned(profile, cfg);
+}
+function syncSuppressDefault(profile) {
+  var cfg = State.generalizations[profile.name] || {};
+  var box = el('suppress-'+cidOf(profile.name));
+  if (box && cfg.suppressValue === undefined) box.checked = suppressValueOn(profile, cfg);
+}
+function toggleCatalog(cb) {
+  var profile = itemFromEl(cb, '.qi-block');
+  if (!profile) return;
+  collectGeneralizations();          // conserva el que hi hagi escrit als intervals
+  var cfg = State.generalizations[profile.name] || {};
+  cfg.catalog = cb.checked ? CCI_AGE_SCHEME : '';
+  State.generalizations[profile.name] = cfg;
+  var cid = cidOf(profile.name);
+  el('qi-config-'+cid).innerHTML = buildTypeConfig(profile.name, profile, 'bins', cfg);
+  refreshBlockHints(cid);
+  syncSuppressDefault(profile);
+}
+function toggleSuppressValue(cb) {
+  var profile = itemFromEl(cb, '.qi-block');
+  if (!profile) return;
+  var cfg = State.generalizations[profile.name] || {};
+  cfg.suppressValue = cb.checked;
+  State.generalizations[profile.name] = cfg;
+}
+function buildCatalogPreview(profile) {
+  var sc = ageScheme();
+  var chips = sc.labels.map(function(l, i) {
+    var cat = sc.categories[i];
+    return '<span class="bin-chip">'+esc(l)+' <span>'+(cat ? esc(cat.id)+' · '+esc(cat.name) : t('catalogNoCategory'))+'</span></span>';
+  }).join('');
+  var warns = '';
+  var s = profile.stats || {};
+  var lo = sc.bins[0], hi = sc.bins[sc.bins.length - 1];
+  if (s.min !== null && s.min !== undefined && s.min < lo) warns += '<div class="alert alert-warn">'+fmt('binsBelow', {v: nf(lo), min: nf(s.min)})+'</div>';
+  if (s.max !== null && s.max !== undefined && s.max >= hi) warns += '<div class="alert alert-warn">'+fmt('binsAbove', {v: nf(hi), max: nf(s.max)})+'</div>';
+  return '<div class="bins-preview">' +
+      '<div class="input-help" style="font-weight:600;">'+t('binsPreview')+'</div>' +
+      '<div class="bin-chips">'+chips+'</div>' +
+      '<div class="input-help">'+t('catalogFixed')+'</div>' + warns +
+    '</div>';
 }
 
 // Els categòrics no porten distribució aquí: la llista de mapatge ja mostra
@@ -655,8 +724,10 @@ function autoLabels(bins) {
   var out = [];
   for (var i = 0; i < bins.length - 1; i++) {
     var a = bins[i], b = bins[i+1];
-    // [a, b) amb enters → «a–(b-1)», que és com es llegeix una franja d'edat
-    out.push(Number.isInteger(a) && Number.isInteger(b) && b - a > 1 ? a + '–' + (b - 1) : a + '–' + b);
+    // [a, b) amb enters → «a–(b-1)», que és com es llegeix una franja d'edat;
+    // [a, a+1) és un sol valor enter («0», no «0–1»)
+    var ints = Number.isInteger(a) && Number.isInteger(b);
+    out.push(ints && b - a === 1 ? String(a) : ints && b - a > 1 ? a + '–' + (b - 1) : a + '–' + b);
   }
   return out;
 }
@@ -720,10 +791,21 @@ function buildTypeConfig(name, profile, type, cfg) {
   var cid = cidOf(name);
 
   if (type==='bins') {
+    // La casella del catàleg surt a tots els numèrics (marcada per defecte si el
+    // nom sembla edat): un ítem d'edat amb un altre nom també s'hi pot alinear
+    var aligned = isCatalogAligned(profile, Object.assign({}, cfg, {type: 'bins'}));
+    var catBox  = (ageScheme() && profile.type === 'numeric')
+      ? '<label class="check-label option-box option-accent">' +
+          '<input type="checkbox" id="catalog-'+cid+'"'+(aligned ? ' checked' : '')+' onchange="toggleCatalog(this)">' +
+          '<span><strong>'+t('catalogToggle')+'</strong><span class="input-help" style="display:block;">'+t('catalogToggleHelp')+'</span></span>' +
+        '</label>'
+      : '';
+    if (aligned) return catBox + buildCatalogPreview(profile);
+
     var bins   = cfg.bins ? cfg.bins.join(', ') : '';
     var labels = cfg.labelsInput !== undefined ? cfg.labelsInput : (cfg.labels ? cfg.labels.join(', ') : '');
     var canSuggest = profile.stats && profile.stats.min !== null && profile.stats.max !== null;
-    return '<div class="input-group">' +
+    return catBox + '<div class="input-group">' +
         '<label for="bins-'+cid+'">'+t('binsLabel')+'</label>' +
         '<div class="input-row">' +
           '<input type="text" class="input-field" id="bins-'+cid+'" placeholder="0, 18, 40, 65, 120" value="'+esc(bins)+'" oninput="updateBinsPreview(this)">' +
@@ -806,6 +888,7 @@ function switchType(btn, type) {
 
   el('qi-config-'+cid).innerHTML = buildTypeConfig(name, profile, type, cfg);
   refreshBlockHints(cid);
+  syncSuppressDefault(profile);
 }
 
 function collectGeneralizations() {
@@ -848,7 +931,13 @@ async function saveGeneralizations() {
   for (var i=0; i<quasi.length; i++) {
     var nm  = quasi[i];
     var cfg = State.generalizations[nm] || {};
-    if (cfg.type==='bins') {
+    var profile = State.items.find(function(it){ return it.name===nm; }) || {name: nm};
+    var sv  = suppressValueOn(profile, cfg);
+    if (cfg.type==='bins' && isCatalogAligned(profile, cfg)) {
+      // Franges fixes: s'envien tal com les va donar el backend (que les revalida)
+      var sc = ageScheme();
+      payload[nm] = { type: 'bins', catalog: CCI_AGE_SCHEME, bins: sc.bins, labels: sc.labels, suppress_value: sv };
+    } else if (cfg.type==='bins') {
       if (!cfg.bins || cfg.bins.length<2) {
         showErr('gen-error', '"'+nm+'": '+t('errBinsMin'));
         return;
@@ -863,9 +952,9 @@ async function saveGeneralizations() {
         showErr('gen-error', '"'+nm+'": '+fmt('errLabelsCount', {n: cfg.bins.length-1}));
         return;
       }
-      payload[nm] = { type: 'bins', bins: cfg.bins, labels: cfg.labels };
+      payload[nm] = { type: 'bins', bins: cfg.bins, labels: cfg.labels, suppress_value: sv };
     } else {
-      payload[nm] = { type: 'mapping', mapping: cfg.mapping || {}, unmapped_label: cfg.unmapped_label };
+      payload[nm] = { type: 'mapping', mapping: cfg.mapping || {}, unmapped_label: cfg.unmapped_label, suppress_value: sv };
     }
   }
 
@@ -923,6 +1012,7 @@ function renderSimulation(data) {
   if (!sims || !sims.length) return;
   var maxPct = Math.max.apply(null, sims.map(function(s){ return s.pct_suppressed; }));
   var k = currentK();
+  var withValue = (data.suppress_value_items || []).length > 0;
   var rows = sims.map(function(s) {
     var chosen = s.k === k;
     var barW   = maxPct > 0 ? Math.round(s.pct_suppressed / maxPct * 100) : 0;
@@ -931,6 +1021,7 @@ function renderSimulation(data) {
         (chosen ? ' <span class="input-help">'+t('simChosen')+'</span>' : '') + '</td>' +
       '<td class="num">'+nf(s.n_patients_final)+'</td>' +
       '<td class="num">'+nf(s.n_suppressed)+'</td>' +
+      (withValue ? '<td class="num">'+nf(s.n_value_suppressed || 0)+'</td>' : '') +
       '<td><div class="loss-cell"><div class="bar"><div style="width:'+barW+'%;"></div></div><span>'+nf(s.pct_suppressed)+' %</span></div></td>' +
       '<td class="num">'+nf(s.conforming_groups)+' / '+nf(s.n_groups)+'</td>' +
       '</tr>';
@@ -941,10 +1032,11 @@ function renderSimulation(data) {
         '<th>'+t('simColK')+'</th>' +
         '<th class="num">'+t('simColFinal')+'</th>' +
         '<th class="num">'+t('simColSupp')+'</th>' +
+        (withValue ? '<th class="num">'+t('simColValueSupp')+'</th>' : '') +
         '<th style="width:34%;">'+t('simColLoss')+'</th>' +
         '<th class="num">'+t('simColGroups')+'</th>' +
       '</tr></thead><tbody>'+rows+'</tbody></table></div>' +
-    '<div class="sim-note">'+t('kSimNote')+'</div>';
+    '<div class="sim-note">'+t('kSimNote')+(withValue ? ' '+t('kSimNoteValue') : '')+'</div>';
 }
 
 // ── FASE 4: K-anonimitat ──────────────────────────────────────────────────────
@@ -1034,7 +1126,10 @@ function renderResults(m) {
   el('result-stats-grid').innerHTML =
     '<div><div class="lbl">'+t('resPatients')+'</div><div class="val">'+nf(m.n_patients_orig)+' → '+nf(m.n_patients_final)+'</div></div>' +
     '<div><div class="lbl">'+t('resRecords')+'</div><div class="val">'+nf(m.n_records_orig)+' → '+nf(m.n_records_final)+'</div></div>' +
-    '<div><div class="lbl">'+t('resSuppressed')+'</div><div class="val'+(m.n_suppressed_patients ? ' danger' : '')+'">'+nf(m.n_suppressed_patients)+' <span style="font-size:14px;">('+nf(pct)+' %)</span></div></div>';
+    '<div><div class="lbl">'+t('resSuppressed')+'</div><div class="val'+(m.n_suppressed_patients ? ' danger' : '')+'">'+nf(m.n_suppressed_patients)+' <span style="font-size:14px;">('+nf(pct)+' %)</span></div></div>' +
+    (m.n_value_suppressed_patients
+      ? '<div><div class="lbl">'+t('resValueSupp')+'</div><div class="val">'+nf(m.n_value_suppressed_patients)+'</div></div>'
+      : '');
 
   el('loss-bar').style.width   = Math.min(pct,100)+'%';
   el('loss-label').textContent = fmt('lossLabel', {pct: nf(pct), k: m.k_used});

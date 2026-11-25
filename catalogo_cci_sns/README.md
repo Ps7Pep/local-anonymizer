@@ -1,8 +1,8 @@
 # CCI-SNS catalogue (copy)
 
 Variables and **provisional** categories of the CCI-SNS model (Patient Complexity and Nursing Care
-Needs), copied verbatim from the `cci-sns-portal` project, `pesos/data/`, commit `c9b16d0`
-(2026-10-16):
+Needs), copied verbatim from the `cci-sns-portal` project, `pesos/data/`, as of 2026-11-25 (new Age /
+D5V14 ranges, commit `aef405c`):
 
 | File | Content |
 |---|---|
@@ -14,4 +14,5 @@ They are not part of the application and are not copied into the Docker image.
 
 When the catalogue changes in `cci-sns-portal`, copy both files again and run the generators
 (see the main README). The generator stops if an instrument scale no longer matches the categories
-of its variable.
+of its variable, or if the fixed catalogue ranges of the anonymizer (`CATALOG_SCHEMES` in
+`app/modules/anonymizer.py`, e.g. Age D5V14) no longer match the catalogue.

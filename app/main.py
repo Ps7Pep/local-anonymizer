@@ -51,6 +51,7 @@ from app.modules.anonymizer import (
     apply_generalizations, apply_k_anonymity, compute_metrics,
     detect_date_format, DATE_FORMATS, _parse_dates,
     propose_mapping, apply_user_mapping,
+    CATALOG_SCHEMES, catalog_scheme_errors,
 )
 from app.modules.report_md   import generate_markdown_report
 from app.modules.report_html import generate_html_report
@@ -303,8 +304,13 @@ def _validate_generalizations(gens: dict) -> list[str]:
         if not isinstance(cfg, dict):
             errors.append(f"'{name}': configuració no vàlida.")
             continue
+        if not isinstance(cfg.get("suppress_value", False), bool):
+            errors.append(f"'{name}': suppress_value ha de ser true o false.")
         t = cfg.get("type")
-        if t == "bins":
+        if cfg.get("catalog") is not None:
+            # Alineat amb el catàleg: exactament l'esquema, res més
+            errors.extend(f"'{name}': {e}." for e in catalog_scheme_errors(cfg))
+        elif t == "bins":
             bins, labels = cfg.get("bins"), cfg.get("labels")
             try:
                 bins = [float(b) for b in bins]
@@ -332,14 +338,29 @@ def _transform(sess: dict) -> tuple[pd.DataFrame, list[str], dict, dict, dict]:
     Només s'apliquen generalitzacions dels ítems que ara són quasi-ID: si
     l'usuari en desclassifica un, la seva configuració antiga no ha de
     modificar un ítem que es publica sense canvis.
+
+    Els ítems alineats amb el catàleg no s'imputen: una mediana cauria en una
+    franja i el portal li assignaria una categoria inventada. El buit queda
+    «Desconocido» (sense categoria).
     """
     quasi = [k for k, v in sess["classifications"].items() if v == "quasi_id"]
     gens  = {k: v for k, v in sess["generalizations"].items() if k in quasi}
     df = sess["df_original"].drop(columns=[_SOURCE_COL], errors="ignore")
     df = compute_date_deltas(df, date_format=sess.get("date_format", "iso"))
-    df, imputation_log     = impute_missing_values(df, quasi)
+    to_impute = [q for q in quasi if not gens.get(q, {}).get("catalog")]
+    df, imputation_log     = impute_missing_values(df, to_impute)
     df, generalization_log = apply_generalizations(df, gens)
     return df, quasi, gens, imputation_log, generalization_log
+
+
+def _suppress_value_items(gens: dict) -> list[str]:
+    return [k for k, v in gens.items() if v.get("suppress_value")]
+
+
+def _catalog_reference(gens: dict) -> dict:
+    """Esquemes de catàleg usats, per a l'informe i el JSON d'auditoria."""
+    used = {v["catalog"] for v in gens.values() if v.get("catalog") in CATALOG_SCHEMES}
+    return {name: CATALOG_SCHEMES[name] for name in sorted(used)}
 
 
 # ── Ruta arrel ────────────────────────────────────────────────────────────────
@@ -681,7 +702,12 @@ def classify(req: ClassifyRequest):
     sess = _get_session(req.session_id)
     sess["classifications"] = req.classifications
     quasi = [k for k, v in req.classifications.items() if v == "quasi_id"]
-    return {"ok": True, "quasi_profiles": [i for i in sess["items"] if i["name"] in quasi]}
+    return {
+        "ok": True,
+        "quasi_profiles": [i for i in sess["items"] if i["name"] in quasi],
+        # La fase 3 pinta les franges fixes del catàleg des d'aquí (font única)
+        "catalog_schemes": CATALOG_SCHEMES,
+    }
 
 
 # ── Endpoint 3: Generalitzacions ──────────────────────────────────────────────
@@ -705,11 +731,12 @@ def simulate_k(req: SimulateKRequest):
         raise HTTPException(400, "Cal classificar els ítems primer.")
     try:
         # Simulem sobre el dataset combinat (sense hash: no afecta els grups)
-        df_t, quasi, _, _, _ = _transform(sess)
+        df_t, quasi, gens, _, _ = _transform(sess)
+        value_items = _suppress_value_items(gens)
 
         simulations = []
         for k in [2, 3, 4, 5]:
-            kr = apply_k_anonymity(df_t, quasi, k)
+            kr = apply_k_anonymity(df_t, quasi, k, value_items)
             eq = kr["equivalence_classes"]
             simulations.append({
                 "k":                k,
@@ -717,11 +744,12 @@ def simulate_k(req: SimulateKRequest):
                 "n_patients_final": kr["n_patients_final"],
                 "n_suppressed":     kr["n_suppressed_patients"],
                 "pct_suppressed":   kr["pct_suppressed"],
+                "n_value_suppressed": kr["n_value_suppressed_patients"],
                 "n_groups":         eq.get("total_groups", 0),
                 "conforming_groups":eq.get("conforming_groups", 0),
                 "size_distribution":eq.get("size_distribution", {}),
             })
-        return {"quasi_ids": quasi, "simulations": simulations}
+        return {"quasi_ids": quasi, "suppress_value_items": value_items, "simulations": simulations}
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(500, detail=str(e))
@@ -745,7 +773,7 @@ def anonymize(req: AnonymizeRequest):
         df_t = sess["df_original"]
         df_core, quasi, generalizations, imputation_log, generalization_log = _transform(sess)
 
-        k_result = apply_k_anonymity(df_core, quasi, req.k)
+        k_result = apply_k_anonymity(df_core, quasi, req.k, _suppress_value_items(generalizations))
         metrics  = compute_metrics(df_core, k_result["df_anonymized"], quasi, k_result)
 
         # Hash al final de tot, un cop el dataset és coherent, agrupat i
@@ -771,6 +799,7 @@ def anonymize(req: AnonymizeRequest):
         sess["imputation_log"]     = imputation_log
         sess["generalization_log"] = generalization_log
         sess["applied_generalizations"] = generalizations
+        sess["catalog_reference"]  = _catalog_reference(generalizations)
 
         # ── Generar informes ──────────────────────────────────────────────────
         now_str       = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
@@ -791,6 +820,7 @@ def anonymize(req: AnonymizeRequest):
             date_range         = sess["date_range"],
             all_items          = all_items,
             version            = __version__,
+            catalog_schemes    = sess["catalog_reference"],
         )
         sess["report_html"] = generate_html_report(
             markdown_text      = sess["report_md"],
@@ -888,6 +918,7 @@ def download_json(session_id: str):
         "patient_hash":       "HMAC-SHA256, per-session random key (not retained), truncated to 12 hex, prefix H-",
         "classifications":    sess["classifications"],
         "generalizations":    sess.get("applied_generalizations", {}),
+        "catalog_reference":  sess.get("catalog_reference", {}),
         "imputation_log":     sess["imputation_log"],
         "generalization_log": sess["generalization_log"],
         "metrics":            sess["metrics"],

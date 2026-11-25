@@ -131,21 +131,30 @@ Para cada variable, el usuario indica su rol:
 
 Para cada cuasi-identificador, el usuario define cómo agrupar los valores:
 
-- **Variables numéricas** → intervalos personalizados (ej: edad → `0-17`, `18-39`, `40-64`, `65+`)
+- **Variables numéricas** → intervalos personalizados (ej: número de fármacos → `0-4`, `5-9`, `10+`)
 - **Variables categóricas** → mapeo de valores originales a categorías más amplias
 
 Los valores ausentes (NaN) se imputan automáticamente sobre los valores originales, antes de generalizar:
 - Categóricos → `Desconocido`
 - Numéricos → mediana del conjunto observado
 
-Nada queda fuera de una generalización en silencio: los valores numéricos fuera de los puntos de corte pasan a `Fuera de rango`, los no numéricos en un ítem con intervalos a `Desconocido`, y los recuentos (y los valores sin categoría asignada) se muestran en los resultados y en el informe.
+Nada queda fuera de una generalización en silencio: los valores numéricos fuera de los puntos de corte pasan a `Fuera de rango`, los vacíos o no numéricos en un ítem con intervalos a `Desconocido`, y los recuentos (y los valores sin categoría asignada) se muestran en los resultados y en el informe.
+
+**Edad y catálogo CCI-SNS.** Las extracciones se mapean en el portal CCI-SNS a las categorías de la variable *Edad* (D5V14) del catálogo, con un código cerrado por franja. Una franja que cruza una frontera del catálogo (1, 2, 6, 12, 18, 65, 75, 90 años) ya no se puede asignar y se pierde la variable entera. Por eso cada cuasi-identificador numérico ofrece la opción **«Franjas del catálogo CCI-SNS (Edad, D5V14)»**. Viene marcada por defecto cuando el nombre del ítem parece edad (`edad`, `edat`, `age`) y se puede desmarcar. Marcada, las franjas son fijas y no se pueden modificar:
+
+| Etiqueta (años cumplidos) | `0` | `1` | `2-5` | `6-11` | `12-17` | `18-64` | `65-74` | `75-89` | `90-130` |
+|---|---|---|---|---|---|---|---|---|---|
+| Categoría del catálogo | ninguna¹ | C03 Lactante | C04 Preescolar | C05 Escolar | C06 Adolescente | C07 Adulto | C08 Persona mayor | C09 Edad avanzada | C10 Edad muy avanzada |
+
+¹ Distinguir recién nacido (C01/C02) de lactante (C03) requiere la edad en días y las semanas de gestación, así que `0` queda sin categoría. `Desconocido` y `Fuera de rango` también quedan sin categoría. En un ítem alineado la edad ausente **no se imputa**, porque una mediana recibiría una categoría inventada. El backend rechaza cualquier otra configuración para un ítem alineado (ni cortes internos ni guiones que no sean ASCII). El informe incluye la tabla etiqueta → categoría con la fecha del catálogo.
 
 ### Fase 4 — K-anonimidad y resultados
 
 - **Simulación previa**: muestra el impacto de k=2, 3, 4, 5 antes de ejecutar
 - **Parámetro k**: cada combinación de cuasi-identificadores debe tener ≥ k pacientes
-- **Firma longitudinal**: la combinación de un paciente es el conjunto de todos los valores que toma cada cuasi-identificador a lo largo de sus visitas (p. ej. franja de edad `60-64 | 65+`), de modo que k se cumple también cuando un cuasi-identificador cambia entre visitas
-- **Supresión**: los pacientes en grupos por debajo de k se eliminan del dataset final
+- **Firma longitudinal**: la combinación de un paciente es el conjunto de todos los valores que toma cada cuasi-identificador a lo largo de sus visitas (p. ej. franja de edad `18-64 | 65-74`), de modo que k se cumple también cuando un cuasi-identificador cambia entre visitas
+- **Suprimir el valor antes que el paciente** (opción por ítem, activada por defecto en los ítems alineados con el catálogo): si un paciente queda en un grupo de menos de k, primero se cambian sus valores de esos ítems por `Desconocido` y se vuelve a comprobar k. Nunca se unen categorías, así que todo valor publicado se puede seguir mapeando (el valor suprimido simplemente queda sin categoría). Los pacientes que ya cumplían k no se tocan
+- **Supresión**: los pacientes que siguen en grupos por debajo de k se eliminan del dataset final
 - **Métricas**: flujo de pacientes, distribución de clases de equivalencia, grupos suprimidos
 
 ---
@@ -182,7 +191,7 @@ Cada dataset corresponde a una extracción acotada: una línea asistencial y, en
 
 | Variable | Riesgo | Recomendación |
 |----------|--------|---------------|
-| `edad` | 🔴 Alto | Siempre QI; generalizar en rangos de ≥15 años |
+| `edad` | 🔴 Alto | Siempre QI; franjas del catálogo CCI-SNS (fijas) y supresión del valor antes que el paciente |
 | `sexo_y_o_genero` | 🔴 Alto | Siempre QI |
 | `nivel_educativo` | 🟡 Medio | QI si el dataset tiene <500 pacientes |
 | `situacion_de_convivencia` | 🟡 Medio | QI si el dataset tiene <500 pacientes |

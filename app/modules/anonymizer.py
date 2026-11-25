@@ -43,6 +43,62 @@ OUT_OF_RANGE_LABEL = "Fuera de rango"  # numèric fora dels punts de tall defini
 # signatures diferents en un mateix grup.
 _SIG_SEP = "\x1f"
 
+# ── Catàleg CCI-SNS ───────────────────────────────────────────────────────────
+# Franges fixes que les extraccions han de portar perquè el portal CCI-SNS les
+# pugui assignar a una sola categoria del catàleg. Cada CCAA mapeja aquestes
+# etiquetes exactes (codis tancats) al seu mòdul del portal: una franja més
+# ampla, més estreta o escrita d'una altra manera fa perdre la variable sencera.
+# Per això un ítem alineat no admet cap altra configuració, ni talls interns.
+#
+# Edat (D5V14): anys complerts, intervals [a, b) sobre l'edat real, de manera
+# que 64,9 cau a «18-64», igual que «64 anys complerts» al portal. «0» no té
+# categoria: separar nounat (C01/C02) de lactant (C03) demana l'edat en dies i
+# les setmanes de gestació. Un buit queda «Desconocido» i el que surt de
+# [0, 131) «Fuera de rango»: el portal deixa tots dos sense categoria.
+CATALOG_SCHEMES = {
+    "cci_sns_edad": {
+        "var_id":       "D5V14",
+        "variable":     "Edad",
+        "catalog_file": "cci-sns-portal · pesos/data/categorias_cci_sns_provisional.csv",
+        "catalog_date": "2026-11-25",
+        "bins":   [0, 1, 2, 6, 12, 18, 65, 75, 90, 131],
+        "labels": ["0", "1", "2-5", "6-11", "12-17", "18-64", "65-74", "75-89", "90-130"],
+        "categories": [
+            None,
+            {"id": "D5V14C03", "name": "Lactante"},
+            {"id": "D5V14C04", "name": "Preescolar"},
+            {"id": "D5V14C05", "name": "Escolar"},
+            {"id": "D5V14C06", "name": "Adolescente"},
+            {"id": "D5V14C07", "name": "Adulto"},
+            {"id": "D5V14C08", "name": "Persona mayor"},
+            {"id": "D5V14C09", "name": "Edad avanzada"},
+            {"id": "D5V14C10", "name": "Edad muy avanzada"},
+        ],
+    },
+}
+
+
+def catalog_scheme_errors(cfg: dict) -> list[str]:
+    """Errors d'una configuració alineada amb el catàleg (buida si és exacta).
+
+    Només s'accepta exactament l'esquema: mateixos punts de tall i mateixes
+    etiquetes, caràcter per caràcter."""
+    scheme = CATALOG_SCHEMES.get(cfg.get("catalog"))
+    if scheme is None:
+        return [f"esquema de catàleg desconegut ({cfg.get('catalog')!r})"]
+    if cfg.get("type") != "bins":
+        return ["un ítem alineat amb el catàleg només admet intervals"]
+    errors = []
+    try:
+        bins_ok = [float(b) for b in cfg.get("bins") or []] == [float(b) for b in scheme["bins"]]
+    except (TypeError, ValueError):
+        bins_ok = False
+    if not bins_ok:
+        errors.append("els punts de tall han de ser exactament " + ", ".join(map(str, scheme["bins"])))
+    if cfg.get("labels") != scheme["labels"]:
+        errors.append("les etiquetes han de ser exactament " + ", ".join(scheme["labels"]))
+    return errors
+
 
 def _is_null_like(series: pd.Series) -> pd.Series:
     return series.isna() | series.astype(str).str.strip().isin(_NULL_STRINGS)
@@ -439,9 +495,12 @@ def apply_generalizations(df: pd.DataFrame, configs: dict) -> tuple[pd.DataFrame
         vals = df.loc[mask, "valor"]
         t    = cfg.get("type")
         if t == "bins":
+            # Ítem alineat: les franges les fixa el catàleg, no la configuració
+            scheme = CATALOG_SCHEMES.get(cfg.get("catalog"))
+            bins, labels = (scheme["bins"], scheme["labels"]) if scheme else (cfg["bins"], cfg["labels"])
             num    = pd.to_numeric(vals, errors="coerce")
             binned = pd.cut(
-                num, bins=cfg["bins"], labels=cfg["labels"],
+                num, bins=bins, labels=labels,
                 right=False, include_lowest=True, ordered=False,
             ).astype(object)
             non_numeric  = num.isna()
@@ -473,22 +532,35 @@ def apply_generalizations(df: pd.DataFrame, configs: dict) -> tuple[pd.DataFrame
 
 # ── K-anonimitat ──────────────────────────────────────────────────────────────
 
-def apply_k_anonymity(df: pd.DataFrame, quasi_id_items: list[str], k: int) -> dict:
+def apply_k_anonymity(df: pd.DataFrame, quasi_id_items: list[str], k: int,
+                      suppress_value_items: list[str] | None = None) -> dict:
     """
     Aplica k-anonimitat per supressió. Elimina tots els registres dels pacients
     que no pertanyen a un grup d'equivalència amb almenys k membres.
 
     Signatura longitudinal: per a cada (pacient, QI) es pren el conjunt de
     valors distints que el pacient té al llarg de totes les visites (p. ex.
-    `60-64|65+`), no només un d'ells. Així k es calcula sobre tot el que es
+    `18-64|65-74`), no només un d'ells. Així k es calcula sobre tot el que es
     publica, i un QI que canvia entre visites no deixa passar perfils únics.
+
+    `suppress_value_items` («suprimir el valor abans que el pacient»): abans
+    d'eliminar un pacient d'un grup de menys de k, els seus valors d'aquests
+    ítems passen a «Desconocido» i es torna a comprovar k; només s'elimina si
+    continua en un grup massa petit. Mai no s'uneixen categories: un valor
+    suprimit queda sense categoria al portal, però la resta del pacient es
+    publica. Una sola passada extra és suficient: els pacients que ja complien
+    no canvien de signatura, i un grup que en conté algun ja tenia ≥ k membres
+    i només pot créixer.
     """
+    value_items = [q for q in (suppress_value_items or []) if q in quasi_id_items]
     if not quasi_id_items:
         n = int(df["pacient"].nunique())
         return {
             "df_anonymized": df, "n_patients_orig": n, "n_patients_final": n,
             "n_records_orig": len(df), "n_records_final": len(df),
             "n_suppressed_patients": 0, "pct_suppressed": 0.0,
+            "n_value_suppressed_patients": 0, "n_value_suppressed_records": 0,
+            "value_suppressed": {},
             "equivalence_classes": {}, "suppressed_groups": [], "k_used": k,
             "warning": "Cap quasi-identificador definit.",
         }
@@ -520,19 +592,48 @@ def apply_k_anonymity(df: pd.DataFrame, quasi_id_items: list[str], k: int) -> di
         if col not in pivot.columns:
             pivot[col] = "NaN"
 
-    group_sizes = (
-        pivot.groupby(quasi_id_items, dropna=False)["pacient"]
-        .count().reset_index(name="_count_")
-    )
-    pivot_m = pivot.merge(group_sizes, on=quasi_id_items, how="left")
+    def _sizes(p: pd.DataFrame) -> pd.Series:
+        return p.groupby(quasi_id_items, dropna=False)["pacient"].transform("count")
 
-    conform  = set(pivot_m[pivot_m["_count_"] >= k]["pacient"])
-    suppress = set(pivot_m[pivot_m["_count_"] <  k]["pacient"])
+    # Primera passada; després, supressió de valor als pacients que no compleixen.
+    # "NaN" (el pacient no té cap registre de l'ítem) no es toca: no hi ha res
+    # a publicar, i convertir-lo en «Desconocido» inventaria un registre.
+    changed: dict[str, pd.Series] = {}
+    if value_items:
+        failing = _sizes(pivot) < k
+        for q in value_items:
+            m = failing & (pivot[q] != "NaN") & (pivot[q] != UNKNOWN_LABEL)
+            if m.any():
+                pivot.loc[m, q] = UNKNOWN_LABEL
+                changed[q] = m
+
+    pivot["_count_"] = _sizes(pivot)
+    group_sizes = (
+        pivot.drop_duplicates(quasi_id_items)[quasi_id_items + ["_count_"]]
+        .reset_index(drop=True)
+    )
+    conform_mask = pivot["_count_"] >= k
+    conform  = set(pivot.loc[conform_mask, "pacient"])
+    suppress = set(pivot.loc[~conform_mask, "pacient"])
 
     df_anon  = df[df["pacient"].isin(conform)].copy()
     n_orig   = int(df["pacient"].nunique())
     n_supp   = len(suppress)
     pct_supp = round(n_supp / n_orig * 100, 2) if n_orig else 0.0
+
+    # Supressió de valor efectiva: només als pacients que finalment es publiquen
+    value_suppressed: dict[str, int] = {}
+    value_patients:   set = set()
+    n_value_records = 0
+    for q, m in changed.items():
+        pats = set(pivot.loc[m & conform_mask, "pacient"])
+        if not pats:
+            continue
+        rows = (df_anon["item"] == q) & df_anon["pacient"].isin(pats)
+        df_anon.loc[rows, "valor"] = UNKNOWN_LABEL
+        value_suppressed[q] = len(pats)
+        value_patients     |= pats
+        n_value_records    += int(rows.sum())
 
     size_dist = group_sizes["_count_"].value_counts().sort_index()
     eq_stats  = {
@@ -560,6 +661,9 @@ def apply_k_anonymity(df: pd.DataFrame, quasi_id_items: list[str], k: int) -> di
         "n_records_final":        len(df_anon),
         "n_suppressed_patients":  n_supp,
         "pct_suppressed":         pct_supp,
+        "n_value_suppressed_patients": len(value_patients),
+        "n_value_suppressed_records":  n_value_records,
+        "value_suppressed":       value_suppressed,
         "equivalence_classes":    eq_stats,
         "suppressed_groups":      suppressed_groups,
         "k_used":                 k,
@@ -577,6 +681,9 @@ def compute_metrics(df_orig: pd.DataFrame, df_anon: pd.DataFrame,
         "n_patients_final":      int(df_anon["pacient"].nunique()) if len(df_anon) else 0,
         "n_suppressed_patients": k_result.get("n_suppressed_patients", 0),
         "pct_suppressed":        k_result.get("pct_suppressed", 0.0),
+        "n_value_suppressed_patients": k_result.get("n_value_suppressed_patients", 0),
+        "n_value_suppressed_records":  k_result.get("n_value_suppressed_records", 0),
+        "value_suppressed":      k_result.get("value_suppressed", {}),
         "n_records_orig":        len(df_orig),
         "n_records_final":       len(df_anon),
         "n_items":               int(df_orig["item"].nunique()),

@@ -131,21 +131,30 @@ Per a cada variable, l'usuari indica el seu rol:
 
 Per a cada quasi-identificador, l'usuari defineix com agrupar els valors:
 
-- **Variables numèriques** → intervals personalitzats (ex: edat → `0-17`, `18-39`, `40-64`, `65+`)
+- **Variables numèriques** → intervals personalitzats (ex: nombre de fàrmacs → `0-4`, `5-9`, `10+`)
 - **Variables categòriques** → mapeig de valors originals a categories més àmplies
 
 Els valors absents (NaN) s'imputen automàticament sobre els valors originals, abans de generalitzar:
 - Categòrics → `Desconocido`
 - Numèrics → mediana del conjunt observat
 
-Res no queda fora d'una generalització en silenci: els valors numèrics fora dels punts de tall passen a `Fuera de rango`, els no numèrics en un ítem amb intervals a `Desconocido`, i els recomptes (i els valors sense categoria assignada) es mostren als resultats i a l'informe.
+Res no queda fora d'una generalització en silenci: els valors numèrics fora dels punts de tall passen a `Fuera de rango`, els buits o no numèrics en un ítem amb intervals a `Desconocido`, i els recomptes (i els valors sense categoria assignada) es mostren als resultats i a l'informe.
+
+**Edat i catàleg CCI-SNS.** Les extraccions es mapegen al portal CCI-SNS a les categories de la variable *Edad* (D5V14) del catàleg, amb un codi tancat per franja. Una franja que travessa una frontera del catàleg (1, 2, 6, 12, 18, 65, 75, 90 anys) ja no es pot assignar i es perd la variable sencera. Per això cada quasi-identificador numèric ofereix l'opció **«Franges del catàleg CCI-SNS (Edat, D5V14)»**. Surt marcada per defecte quan el nom de l'ítem sembla edat (`edad`, `edat`, `age`) i es pot desmarcar. Marcada, les franges són fixes i no es poden modificar:
+
+| Etiqueta (anys complerts) | `0` | `1` | `2-5` | `6-11` | `12-17` | `18-64` | `65-74` | `75-89` | `90-130` |
+|---|---|---|---|---|---|---|---|---|---|
+| Categoria del catàleg | cap¹ | C03 Lactante | C04 Preescolar | C05 Escolar | C06 Adolescente | C07 Adulto | C08 Persona mayor | C09 Edad avanzada | C10 Edad muy avanzada |
+
+¹ Distingir nounat (C01/C02) de lactant (C03) demana l'edat en dies i les setmanes de gestació, de manera que `0` queda sense categoria. `Desconocido` i `Fuera de rango` també queden sense categoria. En un ítem alineat l'edat absent **no s'imputa**, perquè una mediana rebria una categoria inventada. El backend rebutja qualsevol altra configuració per a un ítem alineat (ni talls interns ni guions que no siguin ASCII). L'informe inclou la taula etiqueta → categoria amb la data del catàleg.
 
 ### Fase 4 — K-anonimitat i resultats
 
 - **Simulació prèvia**: mostra l'impacte de k=2, 3, 4, 5 abans d'executar
 - **Paràmetre k**: cada combinació de quasi-identificadors ha de tenir ≥ k pacients
-- **Signatura longitudinal**: la combinació d'un pacient és el conjunt de tots els valors que pren cada quasi-identificador al llarg de les seves visites (p. ex. franja d'edat `60-64 | 65+`), de manera que k es compleix també quan un quasi-identificador canvia entre visites
-- **Supressió**: els pacients en grups per sota de k s'eliminen del dataset final
+- **Signatura longitudinal**: la combinació d'un pacient és el conjunt de tots els valors que pren cada quasi-identificador al llarg de les seves visites (p. ex. franja d'edat `18-64 | 65-74`), de manera que k es compleix també quan un quasi-identificador canvia entre visites
+- **Suprimir el valor abans que el pacient** (opció per ítem, activada per defecte als ítems alineats amb el catàleg): si un pacient queda en un grup de menys de k, primer es canvien els seus valors d'aquests ítems per `Desconocido` i es torna a comprovar k. Mai no s'uneixen categories, de manera que tot valor publicat es pot continuar mapejant (el valor suprimit simplement queda sense categoria). Els pacients que ja complien k no es toquen
+- **Supressió**: els pacients que continuen en grups per sota de k s'eliminen del dataset final
 - **Mètriques**: flux de pacients, distribució de classes d'equivalència, grups suprimits
 
 ---
@@ -182,7 +191,7 @@ Cada dataset correspon a una extracció acotada: una línia assistencial i, a le
 
 | Variable | Risc | Recomanació |
 |----------|------|-------------|
-| `edad` | 🔴 Alt | Sempre QI; generalitzar en rangs de ≥15 anys |
+| `edad` | 🔴 Alt | Sempre QI; franges del catàleg CCI-SNS (fixes) i supressió del valor abans que el pacient |
 | `sexo_y_o_genero` | 🔴 Alt | Sempre QI |
 | `nivel_educativo` | 🟡 Mitjà | QI si el dataset té <500 pacients |
 | `situacion_de_convivencia` | 🟡 Mitjà | QI si el dataset té <500 pacients |

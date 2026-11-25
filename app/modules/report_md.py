@@ -109,7 +109,7 @@ T = {
 "meth_step6_body":("S'ha aplicat el model de **k-anonimitat** (Sweeney, 2002) sobre les combinacions "
 "de quasi-identificadors generalitzats.\n\n"
 "1. Construeix la signatura de cada pacient: per a cada quasi-identificador, el conjunt de "
-"valors distints que pren al llarg de **totes** les seves visites (p. ex. `60-64 | 65+`)\n"
+"valors distints que pren al llarg de **totes** les seves visites (p. ex. `18-64 | 65-74`)\n"
 "2. Agrupa els pacients per signatura i identifica els grups (classes d'equivalència) amb menys de **k** pacients\n"
 "3. Elimina tots els registres dels pacients en grups no conformes\n\n"
 "La supressió s'aplica a nivell de **pacient complet** per preservar la coherència del dataset. "
@@ -127,9 +127,28 @@ T = {
 "gen_bins_label":"Punts de tall","gen_labels_label":"Etiquetes resultants",
 "gen_mapping_label":"Mapeig de valors","gen_unmapped":"Valors no assignats",
 "gen_none":"Sense transformació (valor original)",
-"gen_log_non_numeric":"Registres no numèrics → `Desconocido`",
+"gen_log_non_numeric":"Registres buits o no numèrics → `Desconocido`",
 "gen_log_out_of_range":"Registres fora dels intervals → `Fuera de rango`",
 "gen_log_unmapped":"Registres sense correspondència → etiqueta de no assignats",
+"gen_catalog_title":"Franges del catàleg CCI-SNS — {variable} ({var_id}), catàleg del {date}",
+"gen_catalog_intro":("Franges fixes, sense talls interns: cada etiqueta correspon a una sola categoria del catàleg, "
+"de manera que el portal CCI-SNS pot assignar cada registre sense aproximacions. "
+"`Desconocido` i `Fuera de rango` queden sense categoria."),
+"gen_interval":"Interval (anys complerts)","gen_label":"Etiqueta","gen_category":"Categoria del catàleg",
+"gen_no_category":"_sense categoria: cal l'edat en dies i les setmanes de gestació_",
+"gen_catalog_no_impute":("Valors absents no imputats: queden `Desconocido` (sense categoria), "
+"perquè una mediana assignaria una categoria inventada."),
+"gen_suppress_value":"Suprimir el valor abans que el pacient: **activat**",
+"meth_catalog_note":("- **Excepció — ítems alineats amb el catàleg CCI-SNS**: no s'imputen. El valor absent queda "
+"`Desconocido` i sense categoria al portal."),
+"meth_value_note":("Per als quasi-identificadors amb l'opció **«suprimir el valor abans que el pacient»**, abans "
+"d'eliminar un pacient d'un grup de menys de k, els seus valors d'aquests ítems se substitueixen per `Desconocido` "
+"i es torna a comprovar k. Només s'elimina el pacient si continua en un grup de menys de k. Mai no s'uneixen "
+"categories: el valor suprimit queda sense categoria, i la resta del pacient es publica. Els pacients que ja "
+"complien k no es modifiquen."),
+"kan_value_items":"Suprimir el valor abans que el pacient",
+"res_value_supp":"Pacients amb valor suprimit (→ `Desconocido`)",
+"res_value_supp_item":"de l'ítem",
 "imp_intro":"S'han imputat els valors absents als quasi-identificadors següents:",
 "imp_none":"No s'ha detectat cap valor absent als quasi-identificadors. No s'ha aplicat imputació.",
 "imp_item":"Ítem","imp_n":"Registres imputats","imp_strat":"Estratègia",
@@ -288,7 +307,7 @@ T["es"] = {
 "meth_step6_title":"Fase 5 — K-anonimidad por supresión",
 "meth_step6_body":("Se ha aplicado el modelo de **k-anonimidad** (Sweeney, 2002):\n\n"
 "1. Construye la firma de cada paciente: para cada cuasi-identificador, el conjunto de valores distintos "
-"que toma a lo largo de **todas** sus visitas (p. ej. `60-64 | 65+`)\n"
+"que toma a lo largo de **todas** sus visitas (p. ej. `18-64 | 65-74`)\n"
 "2. Agrupa los pacientes por firma e identifica los grupos con menos de k pacientes\n"
 "3. Elimina todos los registros de pacientes en grupos no conformes\n\n"
 "La supresión se aplica a nivel de **paciente completo**. Como la firma incluye todos los valores "
@@ -302,9 +321,28 @@ T["es"] = {
 "gen_bins_label":"Puntos de corte","gen_labels_label":"Etiquetas resultantes",
 "gen_mapping_label":"Mapeo de valores","gen_unmapped":"Valores no asignados",
 "gen_none":"Sin transformación (valor original)",
-"gen_log_non_numeric":"Registros no numéricos → `Desconocido`",
+"gen_log_non_numeric":"Registros vacíos o no numéricos → `Desconocido`",
 "gen_log_out_of_range":"Registros fuera de los intervalos → `Fuera de rango`",
 "gen_log_unmapped":"Registros sin correspondencia → etiqueta de no asignados",
+"gen_catalog_title":"Franjas del catálogo CCI-SNS — {variable} ({var_id}), catálogo del {date}",
+"gen_catalog_intro":("Franjas fijas, sin cortes internos: cada etiqueta corresponde a una sola categoría del catálogo, "
+"de modo que el portal CCI-SNS puede asignar cada registro sin aproximaciones. "
+"`Desconocido` y `Fuera de rango` quedan sin categoría."),
+"gen_interval":"Intervalo (años cumplidos)","gen_label":"Etiqueta","gen_category":"Categoría del catálogo",
+"gen_no_category":"_sin categoría: requiere la edad en días y las semanas de gestación_",
+"gen_catalog_no_impute":("Valores ausentes no imputados: quedan `Desconocido` (sin categoría), "
+"porque una mediana asignaría una categoría inventada."),
+"gen_suppress_value":"Suprimir el valor antes que el paciente: **activado**",
+"meth_catalog_note":("- **Excepción — ítems alineados con el catálogo CCI-SNS**: no se imputan. El valor ausente queda "
+"`Desconocido` y sin categoría en el portal."),
+"meth_value_note":("Para los cuasi-identificadores con la opción **«suprimir el valor antes que el paciente»**, antes "
+"de eliminar a un paciente de un grupo de menos de k, sus valores de esos ítems se sustituyen por `Desconocido` "
+"y se vuelve a comprobar k. Solo se elimina al paciente si sigue en un grupo de menos de k. Nunca se unen "
+"categorías: el valor suprimido queda sin categoría, y el resto del paciente se publica. Los pacientes que ya "
+"cumplían k no se modifican."),
+"kan_value_items":"Suprimir el valor antes que el paciente",
+"res_value_supp":"Pacientes con valor suprimido (→ `Desconocido`)",
+"res_value_supp_item":"del ítem",
 "imp_intro":"Se han imputado los valores ausentes en los cuasi-identificadores siguientes:",
 "imp_none":"No se detectaron valores ausentes en los cuasi-identificadores. No se aplicó imputación.",
 "imp_item":"Ítem","imp_n":"Registros imputados","imp_strat":"Estrategia",
@@ -455,7 +493,7 @@ T["en"] = {
 "meth_step6_title":"Phase 5 — K-anonymity by Suppression",
 "meth_step6_body":("The **k-anonymity** model (Sweeney, 2002) was applied:\n\n"
 "1. Build each patient's signature: for every quasi-identifier, the set of distinct values it "
-"takes across **all** of the patient's visits (e.g. `60-64 | 65+`)\n"
+"takes across **all** of the patient's visits (e.g. `18-64 | 65-74`)\n"
 "2. Group patients by signature and identify equivalence classes with fewer than k patients\n"
 "3. Remove all records of patients in non-conforming groups\n\n"
 "Suppression is applied at the **full patient level** to preserve dataset coherence. Because the "
@@ -470,9 +508,27 @@ T["en"] = {
 "gen_bins_label":"Cut points","gen_labels_label":"Resulting labels",
 "gen_mapping_label":"Value mapping","gen_unmapped":"Unassigned values",
 "gen_none":"No transformation (original value)",
-"gen_log_non_numeric":"Non-numeric records → `Desconocido`",
+"gen_log_non_numeric":"Empty or non-numeric records → `Desconocido`",
 "gen_log_out_of_range":"Records outside the intervals → `Fuera de rango`",
 "gen_log_unmapped":"Records without a mapping → unassigned label",
+"gen_catalog_title":"CCI-SNS catalogue ranges — {variable} ({var_id}), catalogue of {date}",
+"gen_catalog_intro":("Fixed ranges, no internal cuts: each label corresponds to exactly one catalogue category, "
+"so the CCI-SNS portal can assign every record without approximation. "
+"`Desconocido` and `Fuera de rango` remain without a category."),
+"gen_interval":"Interval (completed years)","gen_label":"Label","gen_category":"Catalogue category",
+"gen_no_category":"_no category: requires age in days and gestational weeks_",
+"gen_catalog_no_impute":("Missing values not imputed: they remain `Desconocido` (no category), "
+"because a median would assign an invented category."),
+"gen_suppress_value":"Suppress the value before the patient: **on**",
+"meth_catalog_note":("- **Exception — items aligned with the CCI-SNS catalogue**: not imputed. A missing value remains "
+"`Desconocido` and without a category in the portal."),
+"meth_value_note":("For quasi-identifiers with the **“suppress the value before the patient”** option, before a patient "
+"in a group of fewer than k is removed, their values of those items are replaced by `Desconocido` and k is checked "
+"again. The patient is removed only if still in a group of fewer than k. Categories are never merged: the suppressed "
+"value is left without a category and the rest of the patient is released. Patients who already met k are not modified."),
+"kan_value_items":"Suppress the value before the patient",
+"res_value_supp":"Patients with a suppressed value (→ `Desconocido`)",
+"res_value_supp_item":"of item",
 "imp_intro":"Missing values were imputed for the following quasi-identifiers:",
 "imp_none":"No missing values detected in quasi-identifiers. No imputation applied.",
 "imp_item":"Item","imp_n":"Imputed records","imp_strat":"Strategy",
@@ -559,8 +615,11 @@ T["en"] = {
 def generate_markdown_report(lang, filename, col_mappings, classifications,
                               generalizations, imputation_log, metrics,
                               date_range, all_items, generalization_log=None,
-                              version="?", coherence=None):
+                              version="?", coherence=None, catalog_schemes=None):
     t   = T.get(lang, T["es"])
+    catalog_schemes = catalog_schemes or {}
+    value_items = [q for q in metrics.get("quasi_id_items", [])
+                   if (generalizations or {}).get(q, {}).get("suppress_value")]
     now = datetime.datetime.now().strftime("%d/%m/%Y %H:%M")
     k   = metrics.get("k_used", "?")
     generalization_log = generalization_log or {}
@@ -638,6 +697,10 @@ def generate_markdown_report(lang, filename, col_mappings, classifications,
     for step in ["1","2","4","5","6","3"]:
         ln(f"### {t[f'meth_step{step}_title']}"); ln()
         ln(t[f"meth_step{step}_body"]); ln()
+        if step == "4" and catalog_schemes:
+            ln(t["meth_catalog_note"]); ln()
+        if step == "6" and value_items:
+            ln(t["meth_value_note"]); ln()
 
     # 4. CLASSIFICACIÓ
     ln(f"## {t['s_classification']}"); ln()
@@ -668,7 +731,22 @@ def generate_markdown_report(lang, filename, col_mappings, classifications,
             tp  = cfg.get("type", "")
             glog = generalization_log.get(item, {})
             ln(f"### {_code(item)}"); ln()
-            if tp == "bins":
+            scheme = catalog_schemes.get(cfg.get("catalog")) if tp == "bins" else None
+            if scheme:
+                ln("**" + t["gen_catalog_title"].format(
+                    variable=_txt(scheme["variable"]), var_id=_txt(scheme["var_id"]),
+                    date=_txt(scheme["catalog_date"])) + "**"); ln()
+                ln(t["gen_catalog_intro"]); ln()
+                ln(f"| {t['gen_interval']} | {t['gen_label']} | {t['gen_category']} |"); ln("|---|---|---|")
+                b = scheme["bins"]
+                for i, (lbl, cat) in enumerate(zip(scheme["labels"], scheme["categories"])):
+                    cat_txt = f"{_code(cat['id'])} {_txt(cat['name'])}" if cat else t["gen_no_category"]
+                    ln(f"| \\[{b[i]}, {b[i+1]}) | {_code(lbl)} | {cat_txt} |")
+                ln()
+                ln(f"- {t['gen_catalog_no_impute']}")
+                ln(f"- {t['gen_log_non_numeric']}: **{glog.get('n_non_numeric', 0):,}**")
+                ln(f"- {t['gen_log_out_of_range']}: **{glog.get('n_out_of_range', 0):,}**")
+            elif tp == "bins":
                 bins   = cfg.get("bins", [])
                 labels = cfg.get("labels", [])
                 ln(f"**{t['gen_type_bins']}**"); ln()
@@ -692,6 +770,8 @@ def generate_markdown_report(lang, filename, col_mappings, classifications,
                 ln(f"- {t['gen_log_unmapped']} ({_code(unmapped)}): **{glog.get('n_unmapped', 0):,}**")
             else:
                 ln(f"_{t['gen_none']}_")
+            if cfg.get("suppress_value"):
+                ln(f"- {t['gen_suppress_value']}")
             ln()
 
     # 6. IMPUTACIÓ
@@ -710,6 +790,8 @@ def generate_markdown_report(lang, filename, col_mappings, classifications,
     ln(f"## {t['s_kanon']}"); ln()
     ln(f"- **{t['kan_k_used']}:** {k}")
     ln(f"- **{t['kan_quasi_items']}:** {qi_list(quasi_items)}")
+    if value_items:
+        ln(f"- **{t['kan_value_items']}:** {qi_list(value_items)}")
     ln()
     note = t["kan_note"].replace("{k}", str(k))
     ln(f"> {note}"); ln()
@@ -721,6 +803,10 @@ def generate_markdown_report(lang, filename, col_mappings, classifications,
     ln(f"| {t['res_patients']} | {n_po:,} | {n_pf:,} |")
     ln(f"| {t['res_records']} | {n_ro:,} | {n_rf:,} |")
     ln(f"| {t['res_suppressed_p']} | — | **{n_sp:,} ({pct}%)** |")
+    if value_items:
+        ln(f"| {t['res_value_supp']} | — | **{metrics.get('n_value_suppressed_patients', 0):,}** |")
+        for item, n in (metrics.get("value_suppressed") or {}).items():
+            ln(f"| &nbsp;&nbsp;{t['res_value_supp_item']} {_code(item)} | — | {n:,} |")
     ln(f"| {t['res_visits_min']} | {v_orig.get('min','?')} | — |")
     ln(f"| {t['res_visits_max']} | {v_orig.get('max','?')} | — |")
     ln(f"| {t['res_visits_mean']} | {v_orig.get('mean','?')} | — |")
